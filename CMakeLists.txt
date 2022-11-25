@@ -74,6 +74,7 @@ set(headers
     src/preview.h
     src/utilities.h
     src/tiny_obj_loader.h
+    src/tiny_gltf.h
 	
 	src/ImGui/imgui.h
     src/ImGui/imconfig.h

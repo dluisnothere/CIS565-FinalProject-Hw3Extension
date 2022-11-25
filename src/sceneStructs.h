@@ -8,9 +8,10 @@
 
 #define BACKGROUND_COLOR (glm::vec3(0.0f))
 
-#define LOAD_OBJ 1
-#define USE_BOUND_BOX 0
-#define USE_UV 0
+#define LOAD_GLTF 1
+#define LOAD_OBJ 0
+#define USE_BOUND_BOX 1
+#define USE_UV 1
 #define USE_PROCEDURAL_TEXTURE 0 // cannot be on at the same time as USE_UV
 #define BUMP_MAP 0
 
@@ -18,7 +19,8 @@ enum GeomType {
     SPHERE,
     CUBE,
     TRIANGLE, // Triangle only exists in the scene if USE_BOUND_BOX 0
-    OBJ // Obj only exists in the scene if USE_BOUND_BOX 1
+    OBJ, // Obj only exists in the scene if USE_BOUND_BOX 1
+    GLTF
 };
 
 struct BoundBox {
@@ -34,10 +36,10 @@ struct Ray {
 struct Vertex {
     glm::vec4 pos;
     glm::vec4 nor;
-    // bool hasUv = false; // by default
-    glm::vec2 uv = glm::vec2(-1.f, -1.f);
-    //int textureid = -1; // the specific texture associated with this vertex
-    // glm::vec4 tan;
+    std::vector<int> texCoords;
+    std::vector<glm::vec2> uvs;
+    glm::vec4 tan = glm::vec4(-1.f, -1.f, -1.f, 0.f); // dummy vals;
+    //int materialId;
 };
 
 struct Triangle {
@@ -61,7 +63,12 @@ struct Geom {
     BoundBox bound;
     int numTris = 0;
 
-    int textureid = -1; // texture associated with geom
+#if LOAD_OBJ
+    int objTexId = -1; // texture associated with geom // convert to array of textures
+#endif
+#if LOAD_GLTF
+    int materialOffset = -1;
+#endif
 };
 
 struct Texture {
@@ -82,6 +89,50 @@ struct Material {
     float hasRefractive;
     float indexOfRefraction;
     float emittance;
+
+    //std::vector<int> texIdxs; // for GLTF, corresponding to roughness and etc.
+    //std::vector<int> texCoords; // for GLTF
+
+#if LOAD_GLTF
+    struct {
+        int baseColorIdx = -1;
+        int baseColorOffset = -1;
+        int baseColorTexCoord = -1;
+
+        int metallicRoughnessIdx = -1;
+        int metallicRoughnessOffset = -1;
+        int metallicRoughnessTexCoord = -1;
+
+        glm::vec3 baseColorFactor = glm::vec3(1.f, 1.f, 1.f);
+        float metallicFactor = 1.0f;
+        float roughnessFactor = 1.0f;
+    } pbrMetallicRoughness;
+
+    struct {
+        int index = -1;
+        int texOffset = -1;
+
+        int texCoord = -1;
+    } normalTexture;
+
+    struct {
+        int index = -1;
+        int texOffset = -1;
+
+        int texCoord = -1;
+    }occlusionTexture;
+
+    struct {
+        int index = -1;
+        int texOffset = -1;
+
+        int texCoord = -1;
+    } emissiveTexture;
+
+    glm::vec3 emissiveFactor = glm::vec3(1.f, 1.f, 1.f);
+
+#endif
+
 };
 
 struct Camera {

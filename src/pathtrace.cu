@@ -28,7 +28,7 @@
 #define ANTIALIASING 0
 #define DEPTH_OF_FIELD 0 // depth of field focus defined later
 #define DIRECT_LIGHTING 0
-#define PERF_ANALYSIS 1
+#define PERF_ANALYSIS 0
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -417,7 +417,7 @@ __global__ void computeIntersections(
 				t = sphereIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
 				tmpHitObj = false;
 			}
-			else if (geom.type == OBJ) {
+			else if (geom.type == OBJ || geom.type == GLTF) {
 				float boxT = boundBoxIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
 				
 				if (boxT != -1) {
@@ -476,10 +476,15 @@ __global__ void computeIntersections(
 		{
 			//The ray hits something
 			intersections[path_index].t = t_min;
+#if LOAD_GLTF
+			intersections[path_index].materialId = geoms[hit_geom_index].materialid + geoms[hit_geom_index].materialOffset;
+#endif
 			intersections[path_index].materialId = geoms[hit_geom_index].materialid;
 			intersections[path_index].surfaceNormal = normal;
 			intersections[path_index].uv = uv;
-			intersections[path_index].textureId = geoms[hit_geom_index].textureid;
+#if LOAD_OBJ
+			intersections[path_index].textureId = geoms[hit_geom_index].objTexId;
+#endif
 			intersections[path_index].hasHitObj = hitObj;
 
 			pathSegments[path_index].remainingBounces--;
@@ -496,53 +501,6 @@ __global__ void computeIntersections(
 // Note that this shader does NOT do a BSDF evaluation!
 // Your shaders should handle that - this can allow techniques such as
 // bump mapping.
-
-// Di's notes: This code never gets called in the final path tracer
-__global__ void shadeFakeMaterial(
-	int iter
-	, int num_paths
-	, ShadeableIntersection* shadeableIntersections
-	, PathSegment* pathSegments
-	, Material* materials
-)
-{
-	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	if (idx < num_paths)
-	{
-		ShadeableIntersection intersection = shadeableIntersections[idx];
-		if (intersection.t > 0.0f) { // if the intersection exists...
-		  // Set up the RNG
-		  // LOOK: this is how you use thrust's RNG! Please look at
-		  // makeSeededRandomEngine as well.
-			thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, 0);
-			thrust::uniform_real_distribution<float> u01(0, 1);
-
-			Material material = materials[intersection.materialId];
-			glm::vec3 materialColor = material.color;
-
-			// If the material indicates that the object was a light, "light" the ray
-			if (material.emittance > 0.0f) {
-				pathSegments[idx].color *= (materialColor * material.emittance);
-			}
-			// Otherwise, do some pseudo-lighting computation. This is actually more
-			// like what you would expect from shading in a rasterizer like OpenGL.
-			// TODO: replace this! you should be able to start with basically a one-liner
-			else {
-				float lightTerm = glm::dot(intersection.surfaceNormal, glm::vec3(0.0f, 1.0f, 0.0f));
-				pathSegments[idx].color *= (materialColor * lightTerm) * 0.3f + ((1.0f - intersection.t * 0.02f) * materialColor) * 0.7f;
-				pathSegments[idx].color *= u01(rng); // apply some noise because why not
-			}
-			// If there was no intersection, color the ray black.
-			// Lots of renderers use 4 channel color, RGBA, where A = alpha, often
-			// used for opacity, in which case they can indicate "no opacity".
-			// This can be useful for post-processing and image compositing.
-
-		}
-		else {
-			pathSegments[idx].color = glm::vec3(0.0f);
-		}
-	}
-}
 
 // Add the current iteration's output to the overall image
 __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iterationPaths)
@@ -620,10 +578,23 @@ __global__ void kernComputeShade(
 				glm::vec3 intersectionPoint = getPointOnRay(pathSegments[idx].ray, intersection.t);
 #if USE_UV
 				// cudaArray_t texture = textures[intersection.textureId];
+#if LOAD_OBJ
 				cudaTextureObject_t texObj = textureObjs[intersection.textureId];
-				int channels = numChannels[intersection.textureId];
-				scatterRay(pathSegments[idx], intersectionPoint, intersection.surfaceNormal, intersection.textureId, intersection.uv, material, /*texture,*/ texObj, channels, rng);
+#endif
+#if LOAD_GLTF
+				int texIndex = material.pbrMetallicRoughness.baseColorIdx;
+				int texOffset = material.pbrMetallicRoughness.baseColorOffset;
+				int texCoord = material.pbrMetallicRoughness.baseColorTexCoord; 
 
+				cudaTextureObject_t texObj = textureObjs[texIndex + texOffset];
+#endif
+				int channels = numChannels[intersection.textureId];
+#if LOAD_OBJ
+				scatterRay(pathSegments[idx], intersectionPoint, intersection.surfaceNormal, intersection.textureId, intersection.uv, material, /*texture,*/ texObj, channels, rng);
+#endif
+#if LOAD_GLTF
+				scatterRay(pathSegments[idx], intersectionPoint, intersection.surfaceNormal, texIndex + texOffset, intersection.uv, material, /*texture,*/ texObj, channels, rng);
+#endif
 #elif USE_PROCEDURAL_TEXTURE		
 				scatterRay(pathSegments[idx], intersectionPoint, intersection.surfaceNormal, material, rng, intersection.hasHitObj);
 #else

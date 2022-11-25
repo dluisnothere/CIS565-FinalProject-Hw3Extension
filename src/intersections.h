@@ -277,11 +277,18 @@ __host__ __device__ float triangleIntersectionTest(Geom* geom, Triangle* triangl
     intersectionPoint = getPointOnRay(r, t);
 
     normal = glm::vec3((1 - u- v) * triangle->pointA.nor + u * triangle->pointB.nor + v * triangle->pointC.nor);
-    
-    if (geom->textureid != -1) {
-        uv = glm::vec2((1 - u - v) * triangle->pointA.uv + u * triangle->pointB.uv +  v * triangle->pointC.uv);
+ 
+#if LOAD_OBJ
+    if (geom->objTexId != -1) {
+        uv = glm::vec2((1 - u - v) * triangle->pointA.uvs[0] + u * triangle->pointB.uvs[0] +  v * triangle->pointC.uvs[0]);
     }
+#endif
 
+#if LOAD_GLTF
+    if (geom->materialid != -1) {
+        uv = glm::vec2((1 - u - v) * triangle->pointA.uvs[0] + u * triangle->pointB.uvs[0] + v * triangle->pointC.uvs[0]);
+    }
+#endif
     if (!outside) {
         normal *= -1.f;
     }
