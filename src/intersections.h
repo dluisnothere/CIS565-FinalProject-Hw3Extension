@@ -258,26 +258,15 @@ __device__ float triangleIntersectionTest(Geom* geom, Triangle* triangle, Ray r,
 __host__ __device__ float triangleIntersectionTest(Geom* geom, Triangle* triangle, Ray r,
     glm::vec3& intersectionPoint, glm::vec3& normal, glm::vec2 &uv, bool& outside) {
 
-    // hard coded
-    glm::mat4 scale = glm::mat4(0.05, 0, 0, 0,
-                                0, 0.05, 0, 0,
-                                0, 0, 0.05, 0,
-                                0, 0, 0, 1);
+    glm::vec3 screenPA = glm::vec3(geom->transform * triangle->pointA.pos);
+    glm::vec3 screenPB = glm::vec3(geom->transform * triangle->pointB.pos);
+    glm::vec3 screenPC = glm::vec3(geom->transform * triangle->pointC.pos);
 
-    glm::mat4 translate = glm::mat4(1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1);
-
-    glm::vec3 screenPA = glm::vec3(translate * scale * geom->transform * triangle->pointA.pos);
-    glm::vec3 screenPB = glm::vec3(translate * scale * geom->transform * triangle->pointB.pos);
-    glm::vec3 screenPC = glm::vec3(translate * scale * geom->transform * triangle->pointC.pos);
+    //printf("pa: %f, %f, %f \n", screenPA.x, screenPA.y, screenPA.z);
 
     float debugax = screenPA.x;
     float debugay = screenPA.y;
     float debugaz = screenPA.z;
-
-    //printf("debuga: %f, %f, %f \n", debugax, debugay, debugaz);
 
     glm::vec3 baryPosition;
 

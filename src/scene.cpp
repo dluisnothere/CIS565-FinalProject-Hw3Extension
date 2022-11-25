@@ -77,10 +77,10 @@ void Scene::processGLTFNode(const tinygltf::Model& model, const tinygltf::Node& 
     if (gltf_node.mesh > -1) {
         int meshNum = gltf_node.mesh;
 
-        Geom nodeGeom = (*geoms)[meshNum];
-        nodeGeom.transform = nodeGeom.transform * node_xform;
-        nodeGeom.inverseTransform = glm::inverse(nodeGeom.transform);
-        nodeGeom.invTranspose = glm::inverseTranspose(nodeGeom.transform);
+        Geom *nodeGeom = &(*geoms)[meshNum];
+        nodeGeom->transform = node_xform;
+        nodeGeom->inverseTransform = glm::inverse(nodeGeom->transform);
+        nodeGeom->invTranspose = glm::inverseTranspose(nodeGeom->transform);
     }
 }
 
@@ -592,6 +592,10 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
         
     }
 
+    printf("MATRIX %i\n", transformGeom->transform.length());
+    for (int i = 0; i < 4; i++) {
+        printf("%f, %f, %f, %f \n", transformGeom->transform[i][0], transformGeom->transform[i][1], transformGeom->transform[i][2], transformGeom->transform[i][3]);
+    }
     ////
     //// Process nodes's transforms
     ////

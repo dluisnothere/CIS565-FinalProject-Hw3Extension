@@ -164,8 +164,8 @@ SCALE       3 3 .3
 
 // texture obj
 OBJECT 9
-../Project3-CUDA-Path-Tracer/gltfs/DuckDi/Duck.gltf
+../gltfs/DuckDi/Duck.gltf
 material 1
-TRANS		0 0 0
+TRANS		0 1 0
 ROTAT	      0 0 0
-SCALE		1 1 1
+SCALE		2 2 2
