@@ -258,9 +258,26 @@ __device__ float triangleIntersectionTest(Geom* geom, Triangle* triangle, Ray r,
 __host__ __device__ float triangleIntersectionTest(Geom* geom, Triangle* triangle, Ray r,
     glm::vec3& intersectionPoint, glm::vec3& normal, glm::vec2 &uv, bool& outside) {
 
-    glm::vec3 screenPA = glm::vec3(geom->transform * triangle->pointA.pos);
-    glm::vec3 screenPB = glm::vec3(geom->transform * triangle->pointB.pos);
-    glm::vec3 screenPC = glm::vec3(geom->transform * triangle->pointC.pos);
+    // hard coded
+    glm::mat4 scale = glm::mat4(0.05, 0, 0, 0,
+                                0, 0.05, 0, 0,
+                                0, 0, 0.05, 0,
+                                0, 0, 0, 1);
+
+    glm::mat4 translate = glm::mat4(1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1);
+
+    glm::vec3 screenPA = glm::vec3(translate * scale * geom->transform * triangle->pointA.pos);
+    glm::vec3 screenPB = glm::vec3(translate * scale * geom->transform * triangle->pointB.pos);
+    glm::vec3 screenPC = glm::vec3(translate * scale * geom->transform * triangle->pointC.pos);
+
+    float debugax = screenPA.x;
+    float debugay = screenPA.y;
+    float debugaz = screenPA.z;
+
+    //printf("debuga: %f, %f, %f \n", debugax, debugay, debugaz);
 
     glm::vec3 baryPosition;
 
@@ -285,10 +302,24 @@ __host__ __device__ float triangleIntersectionTest(Geom* geom, Triangle* triangl
 #endif
 
 #if LOAD_GLTF
-    if (geom->materialid != -1) {
-        uv = glm::vec2((1 - u - v) * triangle->pointA.uvs[0] + u * triangle->pointB.uvs[0] + v * triangle->pointC.uvs[0]);
-    }
+    //if (geom->materialid != -1 && geom->materialOffset != -1) {
+        // debug
+    float pax = triangle->pointA.dev_uvs[0].x;
+    float pay = triangle->pointA.dev_uvs[0].y;
+
+    //printf("ua: %f, %f\n", pax, pay);
+
+        //glm::vec2 debugAUv = triangle->pointA.dev_uvs[0];
+        //float debugAUvx = debugAUv.x;
+        //float debugAUvy = debugAUv.y;
+        //glm::vec2 debugBUv = triangle->pointB.dev_uvs[0];
+        //glm::vec2 debugCUv = triangle->pointC.dev_uvs[0];
+
+        uv = glm::vec2((1 - u - v) * triangle->pointA.dev_uvs[0] + u * triangle->pointB.dev_uvs[0] + v * triangle->pointC.dev_uvs[0]);
+        //printf("u: %f, v: %f \n", uv.x, uv.y);
+    //}
 #endif
+
     if (!outside) {
         normal *= -1.f;
     }

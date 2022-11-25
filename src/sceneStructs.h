@@ -36,9 +36,13 @@ struct Ray {
 struct Vertex {
     glm::vec4 pos;
     glm::vec4 nor;
-    std::vector<int> texCoords;
-    std::vector<glm::vec2> uvs;
-    glm::vec4 tan = glm::vec4(-1.f, -1.f, -1.f, 0.f); // dummy vals;
+    std::vector<int> host_texCoords;
+    std::vector<glm::vec2> host_uvs;
+
+    glm::vec4 tan = glm::vec4(-1.f, -1.f, -1.f, 0.f); // dummy vals;'
+
+    int* dev_texCoords;
+    glm::vec2* dev_uvs;
     //int materialId;
 };
 

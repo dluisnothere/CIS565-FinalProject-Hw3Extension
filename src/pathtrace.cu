@@ -109,6 +109,7 @@ static int* dev_textureChannels;
 
 static int numTextures;
 static int numGeoms; //cursed variables to cudaFree nested pointers;
+static int numMaterials;
 
 static Geom* dev_lights = NULL;
 
@@ -167,6 +168,7 @@ void pathtraceInit(Scene* scene) {
 	numTextures = hst_scene->textures.size();
 
 	numGeoms = hst_scene->geoms.size();
+	numMaterials = hst_scene->materials.size();
 
 	const Camera& cam = hst_scene->state.camera;
 	const int pixelcount = cam.resolution.x * cam.resolution.y;
@@ -181,6 +183,29 @@ void pathtraceInit(Scene* scene) {
 
 	for (int i = 0; i < scene->geoms.size(); i++) {
 		if (scene->geoms[i].numTris > 0) {
+			for (int j = 0; j < scene->geoms[i].numTris; j++) {
+				Vertex pointA = scene->geoms[i].host_tris[j].pointA;
+				Vertex pointB = scene->geoms[i].host_tris[j].pointB;
+				Vertex pointC = scene->geoms[i].host_tris[j].pointC;
+
+				cudaMalloc(&(scene->geoms[i].host_tris[j].pointA.dev_uvs), scene->geoms[i].host_tris[j].pointA.host_uvs.size() * sizeof(glm::vec2));
+				checkCUDAError("cudaMalloc device_uvs A failed");
+
+				cudaMalloc(&(scene->geoms[i].host_tris[j].pointB.dev_uvs), scene->geoms[i].host_tris[j].pointB.host_uvs.size() * sizeof(glm::vec2));
+				checkCUDAError("cudaMalloc device_uvs B failed");
+
+				cudaMalloc(&(scene->geoms[i].host_tris[j].pointC.dev_uvs), scene->geoms[i].host_tris[j].pointC.host_uvs.size() * sizeof(glm::vec2));
+				checkCUDAError("cudaMalloc device_uvs C failed");
+
+				cudaMemcpy(scene->geoms[i].host_tris[j].pointA.dev_uvs, scene->geoms[i].host_tris[j].pointA.host_uvs.data(), scene->geoms[i].host_tris[j].pointA.host_uvs.size() * sizeof(glm::vec2), cudaMemcpyHostToDevice);
+				checkCUDAError("cudaMemcpy device_uvs A failed");
+
+				cudaMemcpy(scene->geoms[i].host_tris[j].pointB.dev_uvs, scene->geoms[i].host_tris[j].pointB.host_uvs.data(), scene->geoms[i].host_tris[j].pointB.host_uvs.size() * sizeof(glm::vec2), cudaMemcpyHostToDevice);
+				checkCUDAError("cudaMemcpy device_uvs B failed");
+
+				cudaMemcpy(scene->geoms[i].host_tris[j].pointC.dev_uvs, scene->geoms[i].host_tris[j].pointC.host_uvs.data(), scene->geoms[i].host_tris[j].pointC.host_uvs.size() * sizeof(glm::vec2), cudaMemcpyHostToDevice);
+				checkCUDAError("cudaMemcpy device_uvs C failed");
+			}
 			cudaMalloc(&(scene->geoms[i].device_tris), scene->geoms[i].numTris * sizeof(Triangle));
 			checkCUDAError("cudaMalloc device_tris failed");
 			cudaMemcpy(scene->geoms[i].device_tris, scene->geoms[i].host_tris, scene->geoms[i].numTris * sizeof(Triangle), cudaMemcpyHostToDevice);
@@ -256,7 +281,21 @@ void pathtraceFree() {
 	Geom* tmp_geom_pointer = new Geom[numG];
 	cudaMemcpy(tmp_geom_pointer, dev_geoms, numG * sizeof(Geom), cudaMemcpyDeviceToHost);
 	for (int i = 0; i < numGeoms; i++) {
-		if (tmp_geom_pointer[i].type == OBJ) {
+		if (tmp_geom_pointer[i].type == OBJ || tmp_geom_pointer[i].type == GLTF) {
+			int numTris = tmp_geom_pointer->numTris;
+			Triangle* tmp_tri_pointer = new Triangle[numTris];
+			cudaMemcpy(tmp_tri_pointer, tmp_geom_pointer[i].device_tris, numTris * sizeof(Geom), cudaMemcpyDeviceToHost);
+			checkCUDAError("cudaMemcpy tmp_tri_pointer failed");
+
+			for (int j = 0; j < numTris; j++) {
+				cudaFree(tmp_tri_pointer[j].pointA.dev_uvs);
+				checkCUDAError("cudaFree point A device_uvs failed");
+				cudaFree(tmp_tri_pointer[j].pointB.dev_uvs);
+				checkCUDAError("cudaFree point B device_uvs failed");
+				cudaFree(tmp_tri_pointer[j].pointC.dev_uvs);
+				checkCUDAError("cudaFree point C device_uvs failed");
+			}
+
 			cudaFree(tmp_geom_pointer[i].device_tris);
 			checkCUDAError("cudaFree device_tris failed");
 		}
@@ -477,9 +516,13 @@ __global__ void computeIntersections(
 			//The ray hits something
 			intersections[path_index].t = t_min;
 #if LOAD_GLTF
-			intersections[path_index].materialId = geoms[hit_geom_index].materialid + geoms[hit_geom_index].materialOffset;
+			if (geoms[hit_geom_index].materialOffset != -1) {
+				intersections[path_index].materialId = geoms[hit_geom_index].materialid + geoms[hit_geom_index].materialOffset;
+			}
+			else {
+				intersections[path_index].materialId = geoms[hit_geom_index].materialid;
+			}
 #endif
-			intersections[path_index].materialId = geoms[hit_geom_index].materialid;
 			intersections[path_index].surfaceNormal = normal;
 			intersections[path_index].uv = uv;
 #if LOAD_OBJ
@@ -582,9 +625,12 @@ __global__ void kernComputeShade(
 				cudaTextureObject_t texObj = textureObjs[intersection.textureId];
 #endif
 #if LOAD_GLTF
+				// only care about the base texture for now
 				int texIndex = material.pbrMetallicRoughness.baseColorIdx;
 				int texOffset = material.pbrMetallicRoughness.baseColorOffset;
 				int texCoord = material.pbrMetallicRoughness.baseColorTexCoord; 
+
+				int debugsum = texIndex + texOffset;
 
 				cudaTextureObject_t texObj = textureObjs[texIndex + texOffset];
 #endif
@@ -593,7 +639,7 @@ __global__ void kernComputeShade(
 				scatterRay(pathSegments[idx], intersectionPoint, intersection.surfaceNormal, intersection.textureId, intersection.uv, material, /*texture,*/ texObj, channels, rng);
 #endif
 #if LOAD_GLTF
-				scatterRay(pathSegments[idx], intersectionPoint, intersection.surfaceNormal, texIndex + texOffset, intersection.uv, material, /*texture,*/ texObj, channels, rng);
+				scatterRay(pathSegments[idx], intersectionPoint, intersection.surfaceNormal, texOffset, intersection.uv, material, /*texture,*/ texObj, channels, rng);
 #endif
 #elif USE_PROCEDURAL_TEXTURE		
 				scatterRay(pathSegments[idx], intersectionPoint, intersection.surfaceNormal, material, rng, intersection.hasHitObj);
@@ -964,6 +1010,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 	while (!iterationComplete) {
 		// clean shading chunks
 		cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
+		checkCUDAError("Dev Intersections");
 
 		// tracing
 		dim3 numblocksPathSegmentTracing = (currNumPaths + blockSize1d - 1) / blockSize1d;

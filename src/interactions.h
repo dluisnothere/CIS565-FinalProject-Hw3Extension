@@ -191,11 +191,13 @@ void scatterRay(
 
     glm::vec3 pointColor;
 
-    if (texid != -1) {
+    if (texid >= 0) {
         float u = uv[0];
         float v = uv[1];
 
         float4 finalcol = tex2D<float4>(texObject, u, v);
+
+        //printf("finalCol: %f, %f, %f \n", finalcol.x, finalcol.y, finalcol.z);
         pointColor = glm::vec3(finalcol.x, finalcol.y, finalcol.z);
 
     }

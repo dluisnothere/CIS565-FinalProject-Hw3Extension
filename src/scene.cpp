@@ -53,7 +53,16 @@ Scene::Scene(string filename) {
 
 void Scene::processGLTFNode(const tinygltf::Model& model, const tinygltf::Node& gltf_node, const glm::mat4& parent_matrix, std::vector<Geom>* geoms)
 {
-    glm::mat4 node_xform = glm::make_mat4(gltf_node.matrix.data());
+    glm::mat4 node_xform;
+    if (gltf_node.matrix.empty()) {
+        glm::vec3 t = gltf_node.translation.empty() ? glm::vec3(0.f) : glm::make_vec3(gltf_node.translation.data());
+        glm::quat r = gltf_node.rotation.empty() ? glm::quat(1, 0, 0, 0) : glm::make_quat(gltf_node.rotation.data());
+        glm::vec3 s = gltf_node.scale.empty() ? glm::vec3(1.f) : glm::make_vec3(gltf_node.scale.data());
+        node_xform = utilityCore::buildTransformationMatrix(t, r, s);
+    }
+    else {
+        node_xform = glm::make_mat4(gltf_node.matrix.data());
+    }
     node_xform = parent_matrix * node_xform;
 
     if (!gltf_node.children.empty())
@@ -302,6 +311,7 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
 
             for (const auto& attribute : gltf_primitive.attributes)
             {
+                std::cout << "Encountered attribute" << std::endl;
                 const tinygltf::Accessor attribAccessor = model.accessors[attribute.second];
                 const tinygltf::BufferView& bufferView = model.bufferViews[attribAccessor.bufferView];
                 const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
@@ -312,9 +322,11 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                 const size_t count = attribAccessor.count;
                 if (attribute.first == "POSITION")
                 {
+                    std::cout << "Encountered position" << count << std::endl;
                     if (attribAccessor.type == TINYGLTF_TYPE_VEC3) {
                         if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) {
                             for (size_t i = 0; i < count; i++, a += byte_stride) {
+                                std::cout << "push position" << std::endl;
                                 tmpVertices.push_back(*((float3*)a));
                             }
                         }
@@ -328,9 +340,11 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                     }
                 }
                 else if (attribute.first == "NORMAL") {
+                    std::cout << "Encountered normal" << count << std::endl;
                     if (attribAccessor.type == TINYGLTF_TYPE_VEC3) {
                         if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) {
                             for (size_t i = 0; i < count; i++, a += byte_stride) {
+                                std::cout << "push normal" << std::endl;
                                 tmpNormals.push_back(*((float3*)a));
                             }
                         }
@@ -344,12 +358,14 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                     }
                 }
                 else if (attribute.first == "TEXCOORD_0") {
+                    std::cout << "Encountered texcoord:"  << count << std::endl;
                     if (attribAccessor.type == TINYGLTF_TYPE_VEC2) {
                         if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) {
                             std::string attribName = attribute.first;
                             //char* coordNumStr = strtok(const_cast<char*>(attribName.c_str()), "_");
                             //int coordNum = atoi(coordNumStr);
                             for (size_t i = 0; i < count; i++, a += byte_stride) {
+                                std::cout << "push texcoord" << std::endl;
                                 tmpUvs[0].push_back(*((float2*)a)); //texture a texture assigned texcoord 1 with this uv.
                                 //std::cout << "coordNUm: " << coordNum << "contains: " << ((float2*)a)->x << " , " << ((float2*)a)->y << std::endl;
                                 //maxTexCoord = std::max(coordNum, maxTexCoord);
@@ -385,10 +401,12 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                 //        std::cerr << "unsupported position definition in gltf file" << std::endl;
                 //    }
                 //}
-                else if (attribute.first == "TANGENT") {
+                /*else if (attribute.first == "TANGENT") {
+                    std::cout << "Encountered tangent: " << count << std::endl;
                     if (attribAccessor.type == TINYGLTF_TYPE_VEC4) {
                         if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) {
                             for (size_t i = 0; i < count; i++, a += byte_stride) {
+                                std::cout << "push tangent" << std::endl;
                                 tmpTangents.push_back(*((float4*)a));
                             }
                         }
@@ -400,7 +418,7 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                     {
                         std::cerr << "unsupported position definition in gltf file" << std::endl;
                     }
-                }
+                }*/
 
             }
 
@@ -409,6 +427,7 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
 
             const size_t triangleCount = tmpIndices.size() / 3;
             for (size_t i = 0; i < triangleCount; i++) {
+                //std::cout << i << std::endl;
                 const uint32_t aIdx = tmpIndices[i * 3 + 0];
                 const uint32_t bIdx = tmpIndices[i * 3 + 1];
                 const uint32_t cIdx = tmpIndices[i * 3 + 2];
@@ -421,9 +440,9 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                 float3 nb = tmpNormals[bIdx];
                 float3 nc = tmpNormals[cIdx];
 
-                float4 ta = tmpTangents[aIdx];
-                float4 tb = tmpTangents[bIdx];
-                float4 tc = tmpTangents[cIdx];
+                //float4 ta = tmpTangents[aIdx];
+                //float4 tb = tmpTangents[bIdx];
+                //float4 tc = tmpTangents[cIdx];
 
                 float2 ua = tmpUvs[0][aIdx];
                 float2 ub = tmpUvs[0][bIdx];
@@ -437,9 +456,9 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                 const glm::vec4 bNor = glm::vec4(nb.x, nb.y, nb.z, 0);
                 const glm::vec4 cNor = glm::vec4(nc.x, nc.y, nc.z, 0);
 
-                const glm::vec4 aTan = glm::vec4(ta.x, ta.y, ta.z, ta.w);
-                const glm::vec4 bTan = glm::vec4(tb.x, tb.y, tb.z, tb.w);
-                const glm::vec4 cTan = glm::vec4(tc.x, tc.y, tc.z, tc.w);
+                //const glm::vec4 aTan = glm::vec4(ta.x, ta.y, ta.z, ta.w);
+                //const glm::vec4 bTan = glm::vec4(tb.x, tb.y, tb.z, tb.w);
+                //const glm::vec4 cTan = glm::vec4(tc.x, tc.y, tc.z, tc.w);
 
                 const glm::vec2 aUv = glm::vec2(ua.x, ua.y);
                 const glm::vec2 bUv = glm::vec2(ub.x, ub.y);
@@ -466,9 +485,9 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
 
                 //// separate Uvs from everything else
 
-                Vertex vertA = Vertex{ aPos, aNor, aTexCoord, aUvList, aTan };
-                Vertex vertB = Vertex{ bPos, bNor, bTexCoord, aUvList, bTan };
-                Vertex vertC = Vertex{ cPos, cNor, cTexCoord, aUvList, cTan };
+                Vertex vertA = Vertex{ aPos, aNor, aTexCoord, aUvList/*, aTan*/};
+                Vertex vertB = Vertex{ bPos, bNor, bTexCoord, bUvList/* bTan*/ };
+                Vertex vertC = Vertex{ cPos, cNor, cTexCoord, cUvList/*, cTan*/};
 
                 Triangle triangle = {
                     vertA,
@@ -479,6 +498,8 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                 triangleArray.push_back(triangle);
 
             }
+
+            std::cout << "triangles pushed" << std::endl;
 
             //std::cerr << "\t\tNum triangles: " << sceneMeshPositions.size() / 3 << std::endl;
             // worry about bounding box performance later
@@ -701,19 +722,19 @@ int Scene::loadObj(const char* filename,
                     tinyobj::real_t txa = attrib.texcoords[2 * size_t(idxa.texcoord_index) + 0];
                     tinyobj::real_t tya = attrib.texcoords[2 * size_t(idxa.texcoord_index) + 1];
                     // vertA.hasUv = true;
-                    vertA.uvs.push_back(glm::vec2(txa, tya));
+                    vertA.host_uvs.push_back(glm::vec2(txa, tya));
                 }
                 if (idxb.texcoord_index >= 0) {
                     tinyobj::real_t txb = attrib.texcoords[2 * size_t(idxb.texcoord_index) + 0];
                     tinyobj::real_t tyb = attrib.texcoords[2 * size_t(idxb.texcoord_index) + 1];
                     // vertB.hasUv = true;
-                    vertB.uvs.push_back(glm::vec2(txb, tyb));
+                    vertB.host_uvs.push_back(glm::vec2(txb, tyb));
                 }
                 if (idxc.texcoord_index >= 0) {
                     tinyobj::real_t txc = attrib.texcoords[2 * size_t(idxc.texcoord_index) + 0];
                     tinyobj::real_t tyc = attrib.texcoords[2 * size_t(idxc.texcoord_index) + 1];
                     // vertC.hasUv = true;
-                    vertC.uvs.push_back(glm::vec2(txc, tyc));
+                    vertC.host_uvs.push_back(glm::vec2(txc, tyc));
                 }
 
 #endif
