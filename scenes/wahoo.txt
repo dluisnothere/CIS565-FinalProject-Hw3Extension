@@ -165,7 +165,7 @@ SCALE       3 3 .3
 // texture obj
 OBJECT 9
 ../gltfs/DuckDi/Duck.gltf
-material 1
-TRANS		0 1 0
+material 4
+TRANS		0 3 0
 ROTAT	      0 0 0
-SCALE		2 2 2
+SCALE		3 3 3

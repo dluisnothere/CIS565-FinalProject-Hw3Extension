@@ -84,7 +84,7 @@ void Scene::processGLTFNode(const tinygltf::Model& model, const tinygltf::Node& 
     }
 }
 
-int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Triangle>* triangleArray, std::vector<Geom>* geoms,*/ const char* basepath = NULL, bool triangulate = true) {
+int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Triangle>* triangleArray, std::vector<Geom>* geoms,*/ Material* sceneMat, const char* basepath = NULL, bool triangulate = true) {
     tinygltf::Model model;
     tinygltf::TinyGLTF loader;
     std::string err;
@@ -136,6 +136,11 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
     {
         std::cerr << "Processing glTF material: '" << gltf_material.name << "'\n";
         Material newMaterial;
+        newMaterial.specular = sceneMat->specular;
+        newMaterial.hasReflective = sceneMat->hasReflective;
+        newMaterial.hasRefractive = sceneMat->hasRefractive;
+        newMaterial.indexOfRefraction = sceneMat->indexOfRefraction;
+        newMaterial.emittance = sceneMat->emittance;
 
         {
             const auto roughness_it = gltf_material.values.find("roughnessFactor");
@@ -311,7 +316,7 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
 
             for (const auto& attribute : gltf_primitive.attributes)
             {
-                std::cout << "Encountered attribute" << std::endl;
+                //std::cout << "Encountered attribute" << std::endl;
                 const tinygltf::Accessor attribAccessor = model.accessors[attribute.second];
                 const tinygltf::BufferView& bufferView = model.bufferViews[attribAccessor.bufferView];
                 const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
@@ -322,11 +327,11 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                 const size_t count = attribAccessor.count;
                 if (attribute.first == "POSITION")
                 {
-                    std::cout << "Encountered position" << count << std::endl;
+                    //std::cout << "Encountered position" << count << std::endl;
                     if (attribAccessor.type == TINYGLTF_TYPE_VEC3) {
                         if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) {
                             for (size_t i = 0; i < count; i++, a += byte_stride) {
-                                std::cout << "push position" << std::endl;
+                                //std::cout << "push position" << std::endl;
                                 tmpVertices.push_back(*((float3*)a));
                             }
                         }
@@ -340,11 +345,11 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                     }
                 }
                 else if (attribute.first == "NORMAL") {
-                    std::cout << "Encountered normal" << count << std::endl;
+                    //std::cout << "Encountered normal" << count << std::endl;
                     if (attribAccessor.type == TINYGLTF_TYPE_VEC3) {
                         if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) {
                             for (size_t i = 0; i < count; i++, a += byte_stride) {
-                                std::cout << "push normal" << std::endl;
+                                //std::cout << "push normal" << std::endl;
                                 tmpNormals.push_back(*((float3*)a));
                             }
                         }
@@ -358,14 +363,14 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                     }
                 }
                 else if (attribute.first == "TEXCOORD_0") {
-                    std::cout << "Encountered texcoord:"  << count << std::endl;
+                    //std::cout << "Encountered texcoord:"  << count << std::endl;
                     if (attribAccessor.type == TINYGLTF_TYPE_VEC2) {
                         if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) {
-                            std::string attribName = attribute.first;
+                            //std::string attribName = attribute.first;
                             //char* coordNumStr = strtok(const_cast<char*>(attribName.c_str()), "_");
                             //int coordNum = atoi(coordNumStr);
                             for (size_t i = 0; i < count; i++, a += byte_stride) {
-                                std::cout << "push texcoord" << std::endl;
+                                //std::cout << "push texcoord" << std::endl;
                                 tmpUvs[0].push_back(*((float2*)a)); //texture a texture assigned texcoord 1 with this uv.
                                 //std::cout << "coordNUm: " << coordNum << "contains: " << ((float2*)a)->x << " , " << ((float2*)a)->y << std::endl;
                                 //maxTexCoord = std::max(coordNum, maxTexCoord);
@@ -926,7 +931,7 @@ int Scene::loadGeom(string objectid) {
         }
         else if (hasGltf) {
             //std::vector<Triangle> triangleArray;
-            loadGltf(objFileName, &newGeom /*, &triangleArray, &geoms*/ ); // transforms are set in here.
+            loadGltf(objFileName, &newGeom, &materials[newGeom.materialid]/*, &triangleArray, &geoms*/ ); // transforms are set in here.
 
 #if USE_BOUND_BOX
             /*float xMin = FLT_MAX;

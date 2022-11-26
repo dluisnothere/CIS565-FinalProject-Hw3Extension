@@ -197,7 +197,7 @@ void scatterRay(
 
         float4 finalcol = tex2D<float4>(texObject, u, v);
 
-        printf("finalCol: %f, %f, %f \n", finalcol.x, finalcol.y, finalcol.z);
+        //printf("finalCol: %f, %f, %f \n", finalcol.x, finalcol.y, finalcol.z);
         pointColor = glm::vec3(finalcol.x, finalcol.y, finalcol.z);
 
     }

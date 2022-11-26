@@ -16,7 +16,7 @@ class Scene {
 private:
     ifstream fp_in;
     void processGLTFNode(const tinygltf::Model& model, const tinygltf::Node& gltf_node, const glm::mat4& parent_matrix, std::vector<Geom>* geom);
-    int loadGltf(std::string filename, Geom* transformGeom, /*std::vector<Triangle>* triangleArray, std::vector<Geom>* geom,*/ const char* basepath, bool triangulate);
+    int loadGltf(std::string filename, Geom* transformGeom, Material* sceneMat,/*std::vector<Triangle>* triangleArray, std::vector<Geom>* geom,*/ const char* basepath, bool triangulate);
     int loadObj(const char* filename, std::vector<Triangle>* triangleArray, const char* basepath, bool triangulate);
     int loadMaterial(string materialid);
     int loadTexture(string textureid);
