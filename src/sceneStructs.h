@@ -170,9 +170,10 @@ struct PathSegment {
 // 2) BSDF evaluation: generate a new ray
 struct ShadeableIntersection {
     float t;
+    glm::vec4 tangent = glm::vec4(1, 0, 0, 0);
     glm::vec3 surfaceNormal;
     int materialId;
-    int textureId;
+    int textureId = -1;
     glm::vec2 uv;
     bool hasHitObj = false;
 };

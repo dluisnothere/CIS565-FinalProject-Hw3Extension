@@ -586,7 +586,6 @@ __global__ void kernComputeShade(
 	, PathSegment* pathSegments
 	, Material* materials
 #if USE_UV
-	// , cudaArray_t* textures
 	, cudaTextureObject_t* textureObjs
 	, int* numChannels
 #endif
@@ -626,20 +625,20 @@ __global__ void kernComputeShade(
 #endif
 #if LOAD_GLTF
 				// only care about the base texture for now
-				int texIndex = material.pbrMetallicRoughness.baseColorIdx;
-				int texOffset = material.pbrMetallicRoughness.baseColorOffset;
-				int texCoord = material.pbrMetallicRoughness.baseColorTexCoord; 
+				//int texIndex = material.pbrMetallicRoughness.baseColorIdx;
+				//int texOffset = material.pbrMetallicRoughness.baseColorOffset;
+				//int texCoord = material.pbrMetallicRoughness.baseColorTexCoord; 
 
-				int debugsum = texIndex + texOffset;
+				//int debugsum = texIndex + texOffset;
 
-				cudaTextureObject_t texObj = textureObjs[texIndex + texOffset];
+				//cudaTextureObject_t texObj = textureObjs[texIndex + texOffset];
 #endif
 				int channels = numChannels[intersection.textureId];
 #if LOAD_OBJ
 				scatterRay(pathSegments[idx], intersectionPoint, intersection.surfaceNormal, intersection.textureId, intersection.uv, material, /*texture,*/ texObj, channels, rng);
 #endif
 #if LOAD_GLTF
-				scatterRay(pathSegments[idx], intersectionPoint, intersection.surfaceNormal, texOffset, intersection.uv, material, /*texture,*/ texObj, channels, rng);
+				scatterRay(pathSegments[idx], intersectionPoint, intersection, material, textureObjs, channels, rng);
 #endif
 #elif USE_PROCEDURAL_TEXTURE		
 				scatterRay(pathSegments[idx], intersectionPoint, intersection.surfaceNormal, material, rng, intersection.hasHitObj);
