@@ -23,6 +23,13 @@ enum GeomType {
     GLTF
 };
 
+enum SARMode {
+    SPOTLIGHT, 
+    CIRCULAR_SPOTLIGHT,
+    SCANNING,
+    STRIPMAP
+};
+
 struct BoundBox {
     glm::vec3 minCorner;
     glm::vec3 maxCorner;
@@ -156,6 +163,22 @@ struct RenderState {
     int traceDepth;
     std::vector<glm::vec3> image;
     std::string imageName;
+};
+
+struct Trajectory {
+    SARMode mode; //Defines how antenna moves
+    int snapshotCount; //How many different positions along the trajectory we trace from
+    glm::vec3 closestApproach; //The mid point of the SAR mode movement
+    glm::vec3 targetLocationAvg; //Average location of the target
+
+    //These two vectors are used to manipulate a camera object to generate phase history
+    std::vector<glm::vec3> vehicleTraj;
+    std::vector<glm::vec3> lookPositions;
+    Camera antenna;
+
+    int iterations;
+    //This comes in as an angle in radians
+    float travelDistance;
 };
 
 struct PathSegment {

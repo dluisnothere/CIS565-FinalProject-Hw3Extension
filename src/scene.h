@@ -34,6 +34,7 @@ public:
     // std::vector<int> textureChannels;
 
     RenderState state;
+    Trajectory traj;
 
     std::vector<Geom> lights;
     int numLights = 0;

@@ -18,6 +18,7 @@ static bool camchanged = true;
 static float dtheta = 0, dphi = 0;
 static glm::vec3 cammove;
 
+
 float zoom, theta, phi;
 glm::vec3 cameraPosition;
 glm::vec3 ogLookAt; // for recentering the camera
@@ -30,11 +31,23 @@ int iteration;
 int width;
 int height;
 
+#define useSAR 0
+
+//All these params are for SAR tracing
+bool usingSAR;
+bool copyCamera;
+Trajectory* traj;
+
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
 
 int main(int argc, char** argv) {
+	usingSAR = false;
+#if useSAR
+	usingSAR = true;
+#endif
 	startTimeString = currentTimeString();
 
 	if (argc < 2) {
@@ -73,6 +86,12 @@ int main(int argc, char** argv) {
 	ogLookAt = cam.lookAt;
 	zoom = glm::length(cam.position - ogLookAt);
 
+	if (usingSAR) {
+		copyCamera = true;
+		traj = &scene->traj;
+		constructTrajectory();
+	}
+
 	// Initialize CUDA and GL components
 	init();
 
@@ -109,8 +128,62 @@ void saveImage() {
 	//img.saveHDR(filename);  // Save a Radiance HDR file
 }
 
+void initializeSpotlightModel() {
+	glm::vec3 closeLook = traj->targetLocationAvg - traj->closestApproach;
+	closeLook.y = 0.0;
+	float flightDist = glm::atan(traj->travelDistance / 2) * length(closeLook);
+	closeLook = glm::normalize(closeLook);
+	glm::vec3 yUp = glm::vec3(0.0, 1.0, 0.0);
+
+	glm::vec3 flightPath = glm::normalize(glm::cross(closeLook, yUp));
+
+	glm::vec3 startLoc = traj->closestApproach + flightDist * flightPath;
+	glm::vec3 endLoc = traj->closestApproach - flightDist * flightPath;
+
+	glm::vec3 travelVec = glm::normalize(endLoc - startLoc);
+	float travelDistance = glm::distance(endLoc, startLoc);
+	float stepSize = travelDistance / (traj->snapshotCount - 1);
+
+	for (int i = 0; i < traj->snapshotCount; i++) {
+		glm::vec3 antennaPos = travelVec * (stepSize * i) + startLoc;
+		traj->vehicleTraj.push_back(antennaPos);
+		traj->lookPositions.push_back(traj->targetLocationAvg);
+	}
+}
+
+void constructTrajectory() {
+
+	//Make these adjustable paramaters
+	traj->iterations = 100;
+	traj->mode = SPOTLIGHT;
+	traj->snapshotCount = 16;
+	traj->travelDistance = 40 * PI / 180.f;
+
+	if (copyCamera) {
+		traj->closestApproach = cameraPosition;
+		traj->targetLocationAvg = ogLookAt;
+
+		Camera* ref = &scene->state.camera;
+		traj->antenna.fov = ref->fov;
+		traj->antenna.resolution = ref->resolution;
+		traj->closestApproach = ref->position;
+		traj->targetLocationAvg = ref->lookAt;
+	}
+	else {
+		//TODO: Maybe add importable antenna model
+	}
+
+	switch (traj->mode)
+	{
+	case SPOTLIGHT:
+		initializeSpotlightModel();
+	default:
+		break;
+	}
+}
+
 void runCuda() {
-	if (camchanged) {
+	if (camchanged && !usingSAR) {
 		iteration = 0;
 		Camera& cam = renderState->camera;
 		cameraPosition.x = zoom * sin(phi) * sin(theta);
@@ -138,24 +211,47 @@ void runCuda() {
 		pathtraceInit(scene);
 	}
 
-	if (iteration < renderState->iterations) {
-		uchar4* pbo_dptr = NULL;
-		iteration++;
-		cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
+	if (usingSAR) {
+		if (iteration < traj->iterations * traj->snapshotCount) {
+			uchar4* pbo_dptr = NULL;
+			iteration++;
+			cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
 
-		// execute the kernel
-		int frame = 0;
-		pathtrace(pbo_dptr, frame, iteration);
+			// execute the kernel
+			int frame = 0;
+			pathtrace(pbo_dptr, frame, iteration);
 
-		// unmap buffer object
-		cudaGLUnmapBufferObject(pbo);
+			// unmap buffer object
+			cudaGLUnmapBufferObject(pbo);
+		}
+		else {
+			saveImage();
+			pathtraceFree();
+			cudaDeviceReset();
+			exit(EXIT_SUCCESS);
+		}
 	}
 	else {
-		saveImage();
-		pathtraceFree();
-		cudaDeviceReset();
-		exit(EXIT_SUCCESS);
+		if (iteration < renderState->iterations) {
+			uchar4* pbo_dptr = NULL;
+			iteration++;
+			cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
+
+			// execute the kernel
+			int frame = 0;
+			pathtrace(pbo_dptr, frame, iteration);
+
+			// unmap buffer object
+			cudaGLUnmapBufferObject(pbo);
+		}
+		else {
+			saveImage();
+			pathtraceFree();
+			cudaDeviceReset();
+			exit(EXIT_SUCCESS);
+		}
 	}
+	
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
