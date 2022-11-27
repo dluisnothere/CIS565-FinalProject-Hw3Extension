@@ -164,8 +164,8 @@ SCALE       3 3 .3
 
 // texture obj
 OBJECT 9
-../gltfs/avocado/avocado.gltf
+../gltfs/WaterBottle/WaterBottle.gltf
 material 1
-TRANS		0 -2 0
+TRANS		0 0 0
 ROTAT	      0 0 0
 SCALE		1 1 1
