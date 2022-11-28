@@ -10,6 +10,7 @@
 #include <thrust/execution_policy.h>
 #include <thrust/device_vector.h>
 #include <iostream>
+#include <glm/gtc/matrix_inverse.hpp>
 
 #include "sceneStructs.h"
 #include "scene.h"
@@ -329,6 +330,35 @@ void pathtraceFree() {
 	delete[] tmp_geom_pointer;
 
 	checkCUDAError("pathtraceFree");
+}
+
+Geom generateNewReceiverFromCamera(Camera cam) {
+	Geom newGeom;
+	newGeom.type = CUBE;
+	newGeom.translation = glm::vec3(cam.position) * 1.1f;
+	glm::vec3 u = glm::vec3(0.0, 0.0, 1.0);
+	glm::vec3 v = cam.view;
+	float x_angle = glm::acos(glm::dot(glm::vec2(u.y, u.z), glm::vec2(v.y, v.z))) * 180.f / PI;
+	float y_angle = glm::acos(glm::dot(glm::vec2(u.x, u.z), glm::vec2(v.x, v.z))) * 180.f / PI;
+	float z_angle = glm::acos(glm::dot(glm::vec2(u.x, u.y), glm::vec2(v.x, v.y))) * 180.f / PI;
+	newGeom.rotation = glm::vec3(x_angle, y_angle, z_angle);
+	//this scal is arbitrary
+	newGeom.scale = glm::vec3(5.0, 5.0, .1);
+
+	newGeom.transform = utilityCore::buildTransformationMatrix(
+		newGeom.translation, newGeom.rotation, newGeom.scale);
+	newGeom.inverseTransform = glm::inverse(newGeom.transform);
+	newGeom.invTranspose = glm::inverseTranspose(newGeom.transform);
+	return newGeom;
+}
+
+__global__ void adjustReceiver(Geom geo, int receiverIndex, Geom* geoms)
+{
+	int index = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (index != 0) {
+		geoms[receiverIndex] = geo;
+	}
 }
 
 /**
@@ -988,6 +1018,10 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 	//   for you.
 
 	// TODO: perform one iteration of path tracing
+
+	Geom nextGeom = generateNewReceiverFromCamera(cam);
+	adjustReceiver << <dim3(1), dim3(1) >> > (nextGeom, hst_scene->state.receiverIndex, dev_geoms);
+
 
 	generateRayFromCamera << <blocksPerGrid2d, blockSize2d >> > (cam, iter, traceDepth, dev_paths);
 	checkCUDAError("generate camera ray");

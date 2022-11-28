@@ -163,6 +163,11 @@ struct RenderState {
     int traceDepth;
     std::vector<glm::vec3> image;
     std::string imageName;
+
+    bool usingSar;
+    //Only for SAR
+    int receiverIndex;
+    bool moveReceiver;
 };
 
 struct Trajectory {
@@ -171,10 +176,14 @@ struct Trajectory {
     glm::vec3 closestApproach; //The mid point of the SAR mode movement
     glm::vec3 targetLocationAvg; //Average location of the target
 
-    //These two vectors are used to manipulate a camera object to generate phase history
+    //These three vectors are used to manipulate a camera object to generate phase history
     std::vector<glm::vec3> vehicleTraj;
     std::vector<glm::vec3> lookPositions;
+    std::vector<glm::vec3> rightVecs;
+
+    //antenna receiver
     Camera antenna;
+    glm::vec2 receiverScale;
 
     int iterations;
     //This comes in as an angle in radians

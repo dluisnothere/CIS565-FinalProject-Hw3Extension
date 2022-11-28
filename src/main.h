@@ -33,6 +33,7 @@ extern int width;
 extern int height;
 
 void constructTrajectory();
+void initReceiver();
 void runCuda();
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
 void mousePositionCallback(GLFWwindow* window, double xpos, double ypos);

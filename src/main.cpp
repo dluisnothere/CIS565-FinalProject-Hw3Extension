@@ -4,6 +4,7 @@
 #include "main.h"
 #include "preview.h"
 #include <cstring>
+#include <glm/gtc/matrix_inverse.hpp>
 
 static std::string startTimeString;
 
@@ -31,7 +32,8 @@ int iteration;
 int width;
 int height;
 
-#define useSAR 0
+#define useSAR 1
+#define constRayCast 1
 
 //All these params are for SAR tracing
 bool usingSAR;
@@ -86,10 +88,14 @@ int main(int argc, char** argv) {
 	ogLookAt = cam.lookAt;
 	zoom = glm::length(cam.position - ogLookAt);
 
+	//Sets up the vehicle flight
+	renderState->usingSar = usingSAR;
 	if (usingSAR) {
 		copyCamera = true;
 		traj = &scene->traj;
+		renderState->moveReceiver = false;
 		constructTrajectory();
+		initReceiver();
 	}
 
 	// Initialize CUDA and GL components
@@ -144,20 +150,23 @@ void initializeSpotlightModel() {
 	float travelDistance = glm::distance(endLoc, startLoc);
 	float stepSize = travelDistance / (traj->snapshotCount - 1);
 
+	
+
 	for (int i = 0; i < traj->snapshotCount; i++) {
 		glm::vec3 antennaPos = travelVec * (stepSize * i) + startLoc;
 		traj->vehicleTraj.push_back(antennaPos);
 		traj->lookPositions.push_back(traj->targetLocationAvg);
+		traj->rightVecs.push_back(travelVec);
 	}
 }
 
 void constructTrajectory() {
 
 	//Make these adjustable paramaters
-	traj->iterations = 100;
+	traj->iterations = 10;
 	traj->mode = SPOTLIGHT;
-	traj->snapshotCount = 16;
-	traj->travelDistance = 40 * PI / 180.f;
+	traj->snapshotCount = 100;
+	traj->travelDistance = 20 * PI / 180.f;
 
 	if (copyCamera) {
 		traj->closestApproach = cameraPosition;
@@ -168,6 +177,7 @@ void constructTrajectory() {
 		traj->antenna.resolution = ref->resolution;
 		traj->closestApproach = ref->position;
 		traj->targetLocationAvg = ref->lookAt;
+		traj->antenna = *ref;
 	}
 	else {
 		//TODO: Maybe add importable antenna model
@@ -182,8 +192,72 @@ void constructTrajectory() {
 	}
 }
 
+void initReceiver() {
+	//Geom newGeom;
+	//Material receiverMat; 
+	//int g_idx = scene->geoms.size();
+	//int m_idx = scene->materials.size();
+	//newGeom.materialid = m_idx;
+
+	//renderState->receiverIndex = g_idx;
+	//newGeom.type = CUBE;
+	//newGeom.translation = glm::vec3(traj->antenna.position) *1.1f;
+	//glm::vec3 u = glm::vec3(0.0, 0.0, 1.0);
+	//glm::vec3 v = traj->antenna.view;
+	//float x_angle = glm::acos(glm::dot(glm::vec2(u.y, u.z), glm::vec2(v.y, v.z))) * 180.f / PI;
+	//float y_angle = glm::acos(glm::dot(glm::vec2(u.x, u.z), glm::vec2(v.x, v.z))) * 180.f / PI;
+	//float z_angle = glm::acos(glm::dot(glm::vec2(u.x, u.y), glm::vec2(v.x, v.y))) * 180.f / PI;
+	//newGeom.rotation = glm::vec3(x_angle, y_angle, z_angle);
+	////this scal is arbitrary
+	//newGeom.scale = glm::vec3(5.0, 5.0, .1);
+
+	//newGeom.transform = utilityCore::buildTransformationMatrix(
+	//	newGeom.translation, newGeom.rotation, newGeom.scale);
+	//newGeom.inverseTransform = glm::inverse(newGeom.transform);
+	//newGeom.invTranspose = glm::inverseTranspose(newGeom.transform);
+
+	//receiverMat.emittance = 1.0;
+	//receiverMat.color = glm::vec3(1.0, 1.0, 1.0);
+
+	//scene->materials.push_back(receiverMat);
+	//scene->geoms.push_back(newGeom);
+
+	Geom newGeom = generateNewReceiverFromCamera(traj->antenna);
+	Material receiverMat;
+
+	int g_idx = scene->geoms.size();
+	int m_idx = scene->materials.size();
+
+	newGeom.materialid = m_idx;
+	renderState->receiverIndex = g_idx;
+
+	receiverMat.emittance = 1.0;
+	receiverMat.color = glm::vec3(1.0, 1.0, 1.0);
+
+	scene->materials.push_back(receiverMat);
+	scene->geoms.push_back(newGeom);
+}
+
+//Adjusts the camera pointer based on the inputs
+void adjustCamera(glm::vec3 position, glm::vec3 lookAt, glm::vec3 rightVec, Camera* cam_ptr) {
+	Camera& camera = *cam_ptr;
+	camera.position = position;
+	camera.lookAt = lookAt;
+	camera.up = glm::normalize(glm::cross(lookAt - position, rightVec));
+	camera.view = glm::normalize(camera.lookAt - camera.position);
+	camera.right = glm::normalize(glm::cross(camera.view, camera.up));
+
+	// Unclear if FOV needs adjustment
+	//float yscaled = tan(fovy * (PI / 180));
+	//float xscaled = (yscaled * camera.resolution.x) / camera.resolution.y;
+	//float fovx = (atan(xscaled) * 180) / PI;
+	//camera.fov = glm::vec2(fovx, fovy);
+	//camera.pixelLength = glm::vec2(2 * xscaled / (float)camera.resolution.x,
+	//	2 * yscaled / (float)camera.resolution.y);
+}
+
 void runCuda() {
-	if (camchanged && !usingSAR) {
+	if (camchanged) {
 		iteration = 0;
 		Camera& cam = renderState->camera;
 		cameraPosition.x = zoom * sin(phi) * sin(theta);
@@ -213,6 +287,14 @@ void runCuda() {
 
 	if (usingSAR) {
 		if (iteration < traj->iterations * traj->snapshotCount) {
+
+			if (iteration % traj->iterations == 0) {
+				//std::cout << iteration << std::endl;
+				//Adjust Camera Pos
+				int idx = iteration / traj->iterations;
+				renderState->moveReceiver = true;
+				adjustCamera(traj->vehicleTraj[idx], traj->lookPositions[idx], traj->rightVecs[idx], &scene->state.camera);
+			}
 			uchar4* pbo_dptr = NULL;
 			iteration++;
 			cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
@@ -220,6 +302,7 @@ void runCuda() {
 			// execute the kernel
 			int frame = 0;
 			pathtrace(pbo_dptr, frame, iteration);
+			renderState->moveReceiver = false;
 
 			// unmap buffer object
 			cudaGLUnmapBufferObject(pbo);
