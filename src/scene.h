@@ -38,4 +38,5 @@ public:
 
     std::vector<Geom> lights;
     int numLights = 0;
+    int numGeoms = 0;
 };

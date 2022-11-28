@@ -34,6 +34,10 @@
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
 
+//SAR
+#define ORTHOGRAPHIC 1
+#define SARNAIVE 1
+
 PerformanceTimer& timer()
 {
 	static PerformanceTimer timer;
@@ -335,15 +339,16 @@ void pathtraceFree() {
 Geom generateNewReceiverFromCamera(Camera cam) {
 	Geom newGeom;
 	newGeom.type = CUBE;
-	newGeom.translation = glm::vec3(cam.position) * 1.1f;
+	/*newGeom.translation = glm::vec3(cam.position) * 1.1f;*/
 	glm::vec3 u = glm::vec3(0.0, 0.0, 1.0);
 	glm::vec3 v = cam.view;
+	newGeom.translation = glm::vec3(cam.position) - 0.1f * v;
 	float x_angle = glm::acos(glm::dot(glm::vec2(u.y, u.z), glm::vec2(v.y, v.z))) * 180.f / PI;
 	float y_angle = glm::acos(glm::dot(glm::vec2(u.x, u.z), glm::vec2(v.x, v.z))) * 180.f / PI;
 	float z_angle = glm::acos(glm::dot(glm::vec2(u.x, u.y), glm::vec2(v.x, v.y))) * 180.f / PI;
 	newGeom.rotation = glm::vec3(x_angle, y_angle, z_angle);
 	//this scal is arbitrary
-	newGeom.scale = glm::vec3(5.0, 5.0, .1);
+	newGeom.scale = glm::vec3(cam.pixelLength.x * cam.resolution.x * 0.5f, cam.pixelLength.y * cam.resolution.y * 0.5f, 0.001f);
 
 	newGeom.transform = utilityCore::buildTransformationMatrix(
 		newGeom.translation, newGeom.rotation, newGeom.scale);
@@ -378,8 +383,6 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 		int index = x + (y * cam.resolution.x);
 		PathSegment& segment = pathSegments[index];
 
-		segment.ray.origin = cam.position;
-
 		segment.color = glm::vec3(1.0f, 1.0f, 1.0f);
 
 		// TODO: implement antialiasing by jittering the ray
@@ -392,10 +395,19 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 			- cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * u01(rng))
 		);
 #else
+#if ORTHOGRAPHIC
+		segment.ray.origin = cam.position
+			- cam.right * cam.pixelLength.x * ((float)x - (float)cam.resolution.x * 0.5f)
+			- cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * 0.5f);
+
+		segment.ray.direction = cam.view;
+#else
+		segment.ray.origin = cam.position;
 		segment.ray.direction = glm::normalize(cam.view
 			- cam.right * cam.pixelLength.x * ((float)x - (float)cam.resolution.x * 0.5f)
 			- cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * 0.5f)
 		);
+#endif
 #endif
 
 #if DEPTH_OF_FIELD
@@ -454,6 +466,9 @@ __global__ void computeIntersections(
 	{
 		PathSegment pathSegment = pathSegments[path_index];
 
+		if (pathSegment.remainingBounces == 0) {
+			return;
+		}
 		float t;
 		glm::vec3 intersect_point;
 		glm::vec3 normal;
@@ -686,6 +701,68 @@ __global__ void kernComputeShade(
 			pathSegments[idx].color = glm::vec3(0.0f);
 		}
 	}
+}
+
+__global__ void kernComputeShadeSAR(
+	int iter
+	, int num_paths
+	, ShadeableIntersection* shadeableIntersections
+	, PathSegment* pathSegments
+	, Material* materials
+)
+{
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx < num_paths)
+	{
+		ShadeableIntersection intersection = shadeableIntersections[idx];
+		if (intersection.t > 0.0f) { // if the intersection exists...
+			Material material = materials[intersection.materialId];
+			if (material.emittance > 0.0f) {
+				pathSegments[idx].remainingBounces = 0;
+				return;
+			}
+			thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, 0);
+			thrust::uniform_real_distribution<float> u01(0, 1);
+			float k = 0.5f;
+			float b = 0.05f;
+			float s = 0.5f;
+			float r = 0.1f;
+			//k: material.hasRefractive, REFR
+			//b: material.indexOfRefraction, REFRIOR
+			//s: material.hasReflective, REFL
+			//r: material.specular.exponent, SPECEX
+			
+			glm::vec3 N = glm::normalize(intersection.surfaceNormal);
+			glm::vec3 L = glm::normalize(-pathSegments[idx].ray.direction);
+			glm::vec3 H = glm::normalize(N + L);
+			glm::vec3 V = glm::reflect(glm::normalize(pathSegments[idx].ray.direction), N);
+			float Id = k * pathSegments[idx].color.r * glm::pow(glm::dot(N, L), b);
+			float Is = s * glm::pow(glm::dot(N, H), r);
+			float resultColor = Id + Is;
+			pathSegments[idx].color = 0.7f * resultColor * pathSegments[idx].color;
+			pathSegments[idx].color += glm::vec3(u01(rng) * 0.1f);
+			pathSegments[idx].remainingBounces = 0;
+
+			//update ray
+			/*pathSegments[idx].ray.origin = pathSegments[idx].ray.origin + intersection.t * pathSegments[idx].ray.direction + 0.01f * N;
+			pathSegments[idx].ray.direction = V;*/
+		}
+		else {
+			pathSegments[idx].color = glm::vec3(0.0f);
+			pathSegments[idx].remainingBounces = 0;
+		}
+	}
+	
+}
+
+__global__ void computeIntersectionsWithLight(
+	int iter
+	, int num_paths
+	, ShadeableIntersection* shadeableIntersections
+	, PathSegment* pathSegments
+	, Material* materials
+) {
+
 }
 
 #if DIRECT_LIGHTING
@@ -1106,6 +1183,16 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 #endif
 			);
 #else 
+#if SARNAIVE
+		kernComputeShadeSAR << <numblocksPathSegmentTracing, blockSize1d >> > (
+			iter,
+			currNumPaths,
+			dev_intersections,
+			dev_paths,
+			dev_materials
+);
+		
+#else
 		kernComputeShade << <numblocksPathSegmentTracing, blockSize1d >> > (
 			iter,
 			currNumPaths,
@@ -1117,6 +1204,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 			, dev_textureChannels
 #endif
 			);
+#endif
 #endif
 
 		cudaDeviceSynchronize();

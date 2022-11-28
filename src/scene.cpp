@@ -11,6 +11,8 @@
 //#define STB_IMAGE_IMPLEMENTATION
 //#define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STBI_MSC_SECURE_CRT
+#define SAR 1
+
 #include "tiny_gltf.h"
 
 #include "tiny_obj_loader.h"
