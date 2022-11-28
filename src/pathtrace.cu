@@ -436,6 +436,7 @@ __global__ void computeIntersections(
 		glm::vec3 tmp_intersect;
 		glm::vec3 tmp_normal;
 		glm::vec2 tmp_uv = glm::vec2(-1, -1);
+		glm::vec4 tmp_tangent = glm::vec4(0, 0, 0, 0);
 		bool tmpHitObj = false;
 
 		// naive parse through global geoms
@@ -634,10 +635,8 @@ __global__ void kernComputeShade(
 				//cudaTextureObject_t texObj = textureObjs[texIndex + texOffset];
 #endif
 				int channels = numChannels[intersection.textureId];
-#if LOAD_OBJ
-				scatterRay(pathSegments[idx], intersectionPoint, intersection.surfaceNormal, intersection.textureId, intersection.uv, material, /*texture,*/ texObj, channels, rng);
-#endif
-#if LOAD_GLTF
+
+#if LOAD_OBJ || LOAD_GLTF
 				scatterRay(pathSegments[idx], intersectionPoint, intersection, material, textureObjs, channels, rng);
 #endif
 #elif USE_PROCEDURAL_TEXTURE		

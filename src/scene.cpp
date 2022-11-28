@@ -136,12 +136,29 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
     {
         std::cerr << "Processing glTF material: '" << gltf_material.name << "'\n";
         Material newMaterial;
+        newMaterial.color = sceneMat->color;
         newMaterial.specular = sceneMat->specular;
         newMaterial.hasReflective = sceneMat->hasReflective;
         newMaterial.hasRefractive = sceneMat->hasRefractive;
         newMaterial.indexOfRefraction = sceneMat->indexOfRefraction;
         newMaterial.emittance = sceneMat->emittance;
-
+        {
+            const auto baseColor_it = gltf_material.values.find("baseColorFactor");
+            if (baseColor_it != gltf_material.values.end())
+            {
+                const tinygltf::ColorValue c = baseColor_it->second.ColorFactor();
+                newMaterial.pbrMetallicRoughness.baseColorFactor = glm::vec3(c[0], c[1], c[2]);
+                std::cerr
+                    << "\tEmissive factor: ("
+                    << newMaterial.emissiveFactor.x << ", "
+                    << newMaterial.emissiveFactor.y << ", "
+                    << newMaterial.emissiveFactor.z << ")\n";
+            }
+            else
+            {
+                std::cerr << "\tUsing default roughness factor\n";
+            }
+        }
         {
             const auto roughness_it = gltf_material.values.find("roughnessFactor");
             if (roughness_it != gltf_material.values.end())
@@ -446,10 +463,6 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                 float3 nb = tmpNormals[bIdx];
                 float3 nc = tmpNormals[cIdx];
 
-                //float4 ta = tmpTangents[aIdx];
-                //float4 tb = tmpTangents[bIdx];
-                //float4 tc = tmpTangents[cIdx];
-
                 const glm::vec4 aPos = glm::vec4( pa.x, pa.y, pa.z, 1 );
                 const glm::vec4 bPos = glm::vec4( pb.x, pb.y, pb.z, 1 );
                 const glm::vec4 cPos = glm::vec4( pc.x, pc.y, pc.z, 1 );
@@ -457,11 +470,6 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                 const glm::vec4 aNor = glm::vec4(na.x, na.y, na.z, 0);
                 const glm::vec4 bNor = glm::vec4(nb.x, nb.y, nb.z, 0);
                 const glm::vec4 cNor = glm::vec4(nc.x, nc.y, nc.z, 0);
-
-                //const glm::vec4 aTan = glm::vec4(ta.x, ta.y, ta.z, ta.w);
-                //const glm::vec4 bTan = glm::vec4(tb.x, tb.y, tb.z, tb.w);
-                //const glm::vec4 cTan = glm::vec4(tc.x, tc.y, tc.z, tc.w);
-
 
                 std::vector<glm::vec2> aUvList = std::vector<glm::vec2>();
                 std::vector<int> aTexCoord = std::vector<int>();
@@ -500,6 +508,20 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                 Vertex vertB = Vertex{ bPos, bNor, bTexCoord, bUvList/* bTan*/ };
                 Vertex vertC = Vertex{ cPos, cNor, cTexCoord, cUvList/*, cTan*/};
 
+                /*if (tmpTangents.size() > 0) {
+                    float4 ta = tmpTangents[aIdx];
+                    float4 tb = tmpTangents[bIdx];
+                    float4 tc = tmpTangents[cIdx];
+
+                    const glm::vec4 aTan = glm::vec4(ta.x, ta.y, ta.z, ta.w);
+                    const glm::vec4 bTan = glm::vec4(tb.x, tb.y, tb.z, tb.w);
+                    const glm::vec4 cTan = glm::vec4(tc.x, tc.y, tc.z, tc.w);
+
+                    vertA.tan = aTan;
+                    vertB.tan = bTan;
+                    vertC.tan = cTan;
+                }*/
+
                 Triangle triangle = {
                     vertA,
                     vertB,
@@ -512,50 +534,6 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
 
             std::cout << "triangles pushed" << std::endl;
 
-            //std::cerr << "\t\tNum triangles: " << sceneMeshPositions.size() / 3 << std::endl;
-            // worry about bounding box performance later
-
-            //// i have a funny feeling in normal buffer that the normals are calculated dynamically through the cuda.
-            //auto normal_accessor_iter = gltf_primitive.attributes.find("NORMAL");
-            //if (normal_accessor_iter != gltf_primitive.attributes.end())
-            //{
-            //    std::cerr << "\t\tHas vertex normals: true\n";
-            //    normalBuffer.push_back(bufferViewFromGLTF<float3>(model, normal_accessor_iter->second));
-            //}
-            //else
-            //{
-            //    std::cerr << "\t\tHas vertex normals: false\n";
-            //    normalBuffer.push_back(bufferViewFromGLTF<float3>(model, -1));
-            //}
-
-            //for (size_t j = 0; j < GeometryData::num_textcoords; ++j)
-            ////{
-            //    char texcoord_str[128];
-            //    //snprintf(texcoord_str, 128, "TEXCOORD_0", (int)j);
-            //    auto texcoord_accessor_iter = gltf_primitive.attributes.find(texcoord_str);
-            //    if (texcoord_accessor_iter != gltf_primitive.attributes.end())
-            //    {
-            //        std::cerr << "\t\tHas texcoords_" << j << ": true\n";
-            //        mesh->texcoords[j].push_back(bufferViewFromGLTF<Vec2f>(model, scene, texcoord_accessor_iter->second));
-            //    }
-            //    else
-            //    {
-            //        std::cerr << "\t\tHas texcoords_" << j << ": false\n";
-            //        mesh->texcoords[j].push_back(bufferViewFromGLTF<Vec2f>(model, scene, -1));
-            //    }
-            //}
-
-            /*auto color_accessor_iter = gltf_primitive.attributes.find("COLOR_0");
-            if (color_accessor_iter != gltf_primitive.attributes.end())
-            {
-                std::cerr << "\t\tHas color_0: true\n";
-                mesh->colors.push_back(bufferViewFromGLTF<Vec4f>(model, scene, color_accessor_iter->second));
-            }
-            else
-            {
-                std::cerr << "\t\tHas color_0: false\n";
-                mesh->colors.push_back(bufferViewFromGLTF<Vec4f>(model, scene, -1));
-            }*/
             float xMin = FLT_MAX;
             float yMin = FLT_MAX;
             float zMin = FLT_MAX;

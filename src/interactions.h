@@ -251,6 +251,13 @@ void scatterRay(
         pointColor = glm::vec3(finalcol.x, finalcol.y, finalcol.z);
 
     }
+    else if (intersection.textureId >= 0) {
+        float u = intersection.uv[0];
+        float v = intersection.uv[1];
+
+        float4 finalcol = tex2D<float4>(texObjects[intersection.textureId], u, v);
+        pointColor = glm::vec3(finalcol.x, finalcol.y, finalcol.z);
+    }
     else {
         pointColor = m.color;
     }
@@ -259,6 +266,7 @@ void scatterRay(
     //if (m.pbrMetallicRoughness.metallicRoughnessOffset >= 0 && randGen <= 0.5) {
     //    // do metallic calculations and whatnot. If oBJ or none of these, then just move on to the reflective crap.
     //    glm::vec3 reflection = glm::reflect(pathSegment.ray.direction, intersection.surfaceNormal);
+
     //    // just use intersection.uv for now and hope the textures align in the location.
     //    int metallicRoughnessTexId = m.pbrMetallicRoughness.metallicRoughnessOffset + m.pbrMetallicRoughness.metallicRoughnessIdx;
     //    glm::vec3 pbrDirection = calculatePbrMetallicRoughness(texObjects[metallicRoughnessTexId], reflection, intersection.uv, pathSegment, intersection, rng);
