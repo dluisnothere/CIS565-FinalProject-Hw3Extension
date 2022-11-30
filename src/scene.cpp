@@ -383,14 +383,8 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                     //std::cout << "Encountered texcoord:"  << count << std::endl;
                     if (attribAccessor.type == TINYGLTF_TYPE_VEC2) {
                         if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) {
-                            //std::string attribName = attribute.first;
-                            //char* coordNumStr = strtok(const_cast<char*>(attribName.c_str()), "_");
-                            //int coordNum = atoi(coordNumStr);
                             for (size_t i = 0; i < count; i++, a += byte_stride) {
-                                //std::cout << "push texcoord" << std::endl;
-                                tmpUvs[0].push_back(*((float2*)a)); //texture a texture assigned texcoord 1 with this uv.
-                                //std::cout << "coordNUm: " << coordNum << "contains: " << ((float2*)a)->x << " , " << ((float2*)a)->y << std::endl;
-                                //maxTexCoord = std::max(coordNum, maxTexCoord);
+                                tmpUvs[0].push_back(*((float2*)a));
                             }
                         }
                         else {
@@ -630,7 +624,7 @@ int Scene::loadObj(const char* filename,
     std::string err;
 
     tinyobj::ObjReaderConfig reader_config;
-    reader_config.mtl_search_path = "../Project3-CUDA-Path-Tracer/objs/"; // Path to material files
+    reader_config.mtl_search_path = "../objs/textures/"; // Path to material files
     tinyobj::ObjReader reader;
 
     if (!reader.ParseFromFile(filename, reader_config)) {

@@ -177,6 +177,8 @@ glm::vec3 calculatePbrMetallicRoughness(cudaTextureObject_t& metallicTexture,
     float mu = metallicUv.x;
     float mv = metallicUv.y;
 
+    printf("tangent: %f, %f, %f, %f \n", intersection.tangent.x, intersection.tangent.y, intersection.tangent.z, intersection.tangent.w);
+
     float4 metallicRoughness = tex2D<float4>(metallicTexture, mu, mv);
     float rough = metallicRoughness.y;
     float metal = metallicRoughness.z;
@@ -263,29 +265,28 @@ void scatterRay(
     }
 
     // 0.5 is a placeholder
-    //if (m.pbrMetallicRoughness.metallicRoughnessOffset >= 0 && randGen <= 0.5) {
-    //    // do metallic calculations and whatnot. If oBJ or none of these, then just move on to the reflective crap.
-    //    glm::vec3 reflection = glm::reflect(pathSegment.ray.direction, intersection.surfaceNormal);
+    if (m.pbrMetallicRoughness.metallicRoughnessOffset >= 0 && randGen <= 0.5) {
+        // do metallic calculations and whatnot. If oBJ or none of these, then just move on to the reflective crap.
+        glm::vec3 reflection = glm::reflect(pathSegment.ray.direction, intersection.surfaceNormal);
 
-    //    // just use intersection.uv for now and hope the textures align in the location.
-    //    int metallicRoughnessTexId = m.pbrMetallicRoughness.metallicRoughnessOffset + m.pbrMetallicRoughness.metallicRoughnessIdx;
-    //    glm::vec3 pbrDirection = calculatePbrMetallicRoughness(texObjects[metallicRoughnessTexId], reflection, intersection.uv, pathSegment, intersection, rng);
-    //    Ray newRay = {
-    //        intersectionPoint,
-    //        pbrDirection
-    //    };
+        // just use intersection.uv for now and hope the textures align in the location.
+        int metallicRoughnessTexId = m.pbrMetallicRoughness.metallicRoughnessOffset + m.pbrMetallicRoughness.metallicRoughnessIdx;
+        glm::vec3 pbrDirection = calculatePbrMetallicRoughness(texObjects[metallicRoughnessTexId], reflection, intersection.uv, pathSegment, intersection, rng);
+        Ray newRay = {
+            intersectionPoint,
+            pbrDirection
+        };
 
-    //    PathSegment newPath = {
-    //        newRay,
-    //        m.specular.color * pointColor * pathSegment.color * m.hasReflective,
-    //        pathSegment.pixelIndex,
-    //        pathSegment.remainingBounces
-    //    };
+        PathSegment newPath = {
+            newRay,
+            m.specular.color * pointColor * pathSegment.color * m.hasReflective,
+            pathSegment.pixelIndex,
+            pathSegment.remainingBounces
+        };
 
-    //    pathSegment = newPath;
+        pathSegment = newPath;
 
-    //} else 
-    if (randGen <= m.hasReflective) {
+    } else if (randGen <= m.hasReflective) {
         // take a reflective ray
         glm::vec3 newDirection = glm::reflect(pathSegment.ray.direction, intersection.surfaceNormal);
         Ray newRay = {

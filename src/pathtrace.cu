@@ -436,7 +436,7 @@ __global__ void computeIntersections(
 		glm::vec3 tmp_intersect;
 		glm::vec3 tmp_normal;
 		glm::vec2 tmp_uv = glm::vec2(-1, -1);
-		glm::vec4 tmp_tangent = glm::vec4(0, 0, 0, 0);
+		glm::vec4 tmp_tangent = glm::vec4(0, 1, 0, 0);
 		bool tmpHitObj = false;
 
 		// naive parse through global geoms
