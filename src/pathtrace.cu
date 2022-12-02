@@ -432,11 +432,12 @@ __global__ void computeIntersections(
 		glm::vec2 uv = glm::vec2(-1, -1);
 		bool outside = true;
 		bool hitObj; // for use in procedural texturing
+		glm::vec4 tangent = glm::vec4(0, 0, 0, 0);
 
 		glm::vec3 tmp_intersect;
 		glm::vec3 tmp_normal;
 		glm::vec2 tmp_uv = glm::vec2(-1, -1);
-		glm::vec4 tmp_tangent = glm::vec4(0, 1, 0, 0);
+		glm::vec4 tmp_tangent = glm::vec4(0, 0, 0, 0);
 		bool tmpHitObj = false;
 
 		// naive parse through global geoms
@@ -467,7 +468,7 @@ __global__ void computeIntersections(
 						Texture tex = texs[geom.textureid];
 						t = triangleIntersectionTest(&geom, &geom.device_tris[j], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, texObj, tex, outside);
 #else
-						t = triangleIntersectionTest(&geom, &geom.device_tris[j], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, outside);
+						t = triangleIntersectionTest(&geom, &geom.device_tris[j], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_tangent, outside);
 #endif
 						tmpHitObj = true;
 
@@ -479,6 +480,7 @@ __global__ void computeIntersections(
 							normal = tmp_normal;
 							uv = tmp_uv;
 							hitObj = tmpHitObj;
+							tangent = tmp_tangent;
 						}
 					}
 				}
@@ -490,7 +492,7 @@ __global__ void computeIntersections(
 				Texture tex = texs[geom.textureid];
 				t = triangleIntersectionTest(&geom, &geom.device_tris[0], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, texObj, tex, outside);
 #else
-				t = triangleIntersectionTest(&geom, &geom.device_tris[0], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, outside);
+				t = triangleIntersectionTest(&geom, &geom.device_tris[0], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_tangent, outside);
 #endif
 				tmpHitObj = true;
 			}
@@ -504,6 +506,7 @@ __global__ void computeIntersections(
 				normal = tmp_normal;
 				uv = tmp_uv;
 				hitObj = tmpHitObj;
+				tangent = tmp_tangent;
 			}
 		}
 
@@ -523,6 +526,8 @@ __global__ void computeIntersections(
 			else {
 				intersections[path_index].materialId = geoms[hit_geom_index].materialid;
 			}
+
+			intersections[path_index].tangent = tangent;
 #endif
 			intersections[path_index].surfaceNormal = normal;
 			intersections[path_index].uv = uv;

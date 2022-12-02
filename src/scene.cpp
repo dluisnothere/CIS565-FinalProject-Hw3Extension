@@ -274,6 +274,7 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
             }
 
             std::vector<int> tmpIndices;
+            // just try float3
             std::vector<float4> tmpTangents;
             std::vector<float3> tmpNormals, tmpVertices;
             std::map<int, std::vector<float2>> tmpUvs; // map uvs to texcoords
@@ -418,13 +419,54 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                         std::cerr << "unsupported position definition in gltf file" << std::endl;
                     }
                 }
-                /*else if (attribute.first == "TANGENT") {
+                else if (attribute.first == "TANGENT") {
                     std::cout << "Encountered tangent: " << count << std::endl;
                     if (attribAccessor.type == TINYGLTF_TYPE_VEC4) {
                         if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) {
                             for (size_t i = 0; i < count; i++, a += byte_stride) {
-                                std::cout << "push tangent" << std::endl;
-                                tmpTangents.push_back(*((float4*)a));
+                                //std::cout << "push tangent" << std::endl;
+                                //tmpTangents.push_back(*((float4*)a));
+                                //tmpTangents.push_back(*((float4*)a));
+
+                                //float afloat = *((float*)a);
+                                //std::cout << "aFloat: " << afloat << std::endl;
+                                //std::cout << "================================" << std::endl;
+
+                                //float2 afloat2 = *((float2*)a);
+                                //std::cout << "afloat2.x: " << afloat2.x << std::endl;
+                                //std::cout << "afloat2.y: " << afloat2.y << std::endl;
+                                //std::cout << "================================" << std::endl;
+
+
+                                //float3 afloat3 = *((float3*)a);
+                                //std::cout << "afloat3.x: " << afloat3.x << std::endl;
+                                //std::cout << "afloat3.y: " << afloat3.y << std::endl;
+                                //std::cout << "afloat3.z: " << afloat3.z << std::endl;
+                                //std::cout << "================================" << std::endl;
+
+                                // DebugBreak();
+                                float4 afloat4 = float4{ *((float*)a),
+                                    *((float*)(a + 4)),
+                                    *((float*)(a + 8)),
+                                    *((float*)(a + 12)) };
+
+                                //std::cout << "afloat4.x: " << afloat4.x << std::endl;
+                                //std::cout << "afloat4.y: " << afloat4.y << std::endl;
+                                //std::cout << "afloat4.z: " << afloat4.z << std::endl;
+                                //std::cout << "afloat4.w: " << afloat4.w << std::endl;
+                                //std::cout << "================================" << std::endl;
+
+                                //float ay = *((float*)(a + 1));
+                                //std::cout << "ay " << ay << std::endl;
+
+                                /*float az = *((float*)(a + 2));
+                                std::cout << "az " << az << std::endl;
+
+                                float aw = *((float*)(a + 3));
+                                std::cout << "aw " << aw << std::endl;*/
+
+
+                                tmpTangents.push_back(afloat4);
                             }
                         }
                         else {
@@ -435,7 +477,7 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                     {
                         std::cerr << "unsupported position definition in gltf file" << std::endl;
                     }
-                }*/
+                }
 
             }
 
@@ -498,11 +540,11 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
 
                 //// separate Uvs from everything else
 
-                Vertex vertA = Vertex{ aPos, aNor, aTexCoord, aUvList/*, aTan*/};
-                Vertex vertB = Vertex{ bPos, bNor, bTexCoord, bUvList/* bTan*/ };
-                Vertex vertC = Vertex{ cPos, cNor, cTexCoord, cUvList/*, cTan*/};
+                Vertex vertA = Vertex{ aPos, aNor, aTexCoord, aUvList};
+                Vertex vertB = Vertex{ bPos, bNor, bTexCoord, bUvList};
+                Vertex vertC = Vertex{ cPos, cNor, cTexCoord, cUvList};
 
-                /*if (tmpTangents.size() > 0) {
+                if (tmpTangents.size() > 0) {
                     float4 ta = tmpTangents[aIdx];
                     float4 tb = tmpTangents[bIdx];
                     float4 tc = tmpTangents[cIdx];
@@ -514,7 +556,7 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                     vertA.tan = aTan;
                     vertB.tan = bTan;
                     vertC.tan = cTan;
-                }*/
+                }
 
                 Triangle triangle = {
                     vertA,

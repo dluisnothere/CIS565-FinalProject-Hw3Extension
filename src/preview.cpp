@@ -5,6 +5,9 @@
 #include "ImGui/imgui.h"
 #include "ImGui/imgui_impl_glfw.h"
 #include "ImGui/imgui_impl_opengl3.h"
+#include <Windows.h>
+#include <commdlg.h>
+
 GLuint positionLocation = 0;
 GLuint texcoordsLocation = 1;
 GLuint pbo;
@@ -219,6 +222,25 @@ void RenderImGui()
 	//ImGui::Text("counter = %d", counter);
 	ImGui::Text("Traced Depth %d", imguiData->TracedDepth);
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	
+	//// Di added
+	if (ImGui::Button("Load Scene")) {
+		char szFileName[MAX_PATH] = { 0 };
+		OPENFILENAME openFileName = { 0 };
+		openFileName.lStructSize = sizeof(OPENFILENAME);
+		openFileName.nMaxFile = MAX_PATH;  //这个必须设置，不设置的话不会出现打开文件对话框
+		openFileName.lpstrFilter = "Text Files\0*.txt";
+		openFileName.lpstrFile = szFileName;
+		openFileName.nFilterIndex = 1;
+		openFileName.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+		if (GetOpenFileName(&openFileName))
+		{
+			printf("file clicked \n");
+		}
+	}
+
+
+
 	ImGui::End();
 
 

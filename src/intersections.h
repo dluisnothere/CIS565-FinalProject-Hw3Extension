@@ -256,7 +256,7 @@ __device__ float triangleIntersectionTest(Geom* geom, Triangle* triangle, Ray r,
 }
 #else
 __host__ __device__ float triangleIntersectionTest(Geom* geom, Triangle* triangle, Ray r,
-    glm::vec3& intersectionPoint, glm::vec3& normal, glm::vec2 &uv, bool& outside) {
+    glm::vec3& intersectionPoint, glm::vec3& normal, glm::vec2 &uv, glm::vec4 &tangent, bool& outside) {
 
     glm::vec3 screenPA = glm::vec3(geom->transform * triangle->pointA.pos);
     glm::vec3 screenPB = glm::vec3(geom->transform * triangle->pointB.pos);
@@ -293,7 +293,7 @@ __host__ __device__ float triangleIntersectionTest(Geom* geom, Triangle* triangl
 #if LOAD_GLTF
     // just use normal uv values for now and not worry about the other texcoords
     uv = glm::vec2((1 - u - v) * triangle->pointA.dev_uvs[0] + u * triangle->pointB.dev_uvs[0] + v * triangle->pointC.dev_uvs[0]);
-    
+    tangent = glm::vec4((1 - u - v) * triangle->pointA.tan + u * triangle->pointB.tan + v * triangle->pointC.tan);
 #endif
 
     if (!outside) {

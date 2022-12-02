@@ -177,7 +177,7 @@ glm::vec3 calculatePbrMetallicRoughness(cudaTextureObject_t& metallicTexture,
     float mu = metallicUv.x;
     float mv = metallicUv.y;
 
-    printf("tangent: %f, %f, %f, %f \n", intersection.tangent.x, intersection.tangent.y, intersection.tangent.z, intersection.tangent.w);
+    //printf("tangent: %f, %f, %f, %f \n", intersection.tangent.x, intersection.tangent.y, intersection.tangent.z, intersection.tangent.w);
 
     float4 metallicRoughness = tex2D<float4>(metallicTexture, mu, mv);
     float rough = metallicRoughness.y;
@@ -265,7 +265,7 @@ void scatterRay(
     }
 
     // 0.5 is a placeholder
-    if (m.pbrMetallicRoughness.metallicRoughnessOffset >= 0 && randGen <= 0.5) {
+    if (m.pbrMetallicRoughness.metallicRoughnessOffset >= 0) {
         // do metallic calculations and whatnot. If oBJ or none of these, then just move on to the reflective crap.
         glm::vec3 reflection = glm::reflect(pathSegment.ray.direction, intersection.surfaceNormal);
 
@@ -279,7 +279,7 @@ void scatterRay(
 
         PathSegment newPath = {
             newRay,
-            m.specular.color * pointColor * pathSegment.color * m.hasReflective,
+            pointColor * pathSegment.color,
             pathSegment.pixelIndex,
             pathSegment.remainingBounces
         };
