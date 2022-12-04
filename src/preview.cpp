@@ -140,8 +140,12 @@ void errorCallback(int error, const char* description) {
 	fprintf(stderr, "%s\n", description);
 }
 
-bool init() {
+static OnLoadNewScene loadNewScene;
+
+bool init(OnLoadNewScene fpOnLoadNewScene) {
 	glfwSetErrorCallback(errorCallback);
+
+	loadNewScene = fpOnLoadNewScene;
 
 	if (!glfwInit()) {
 		exit(EXIT_FAILURE);
@@ -188,6 +192,7 @@ bool init() {
 void InitImguiData(GuiDataContainer* guiData)
 {
 	imguiData = guiData;
+	//imguiData->TracedDepth = 8;
 }
 
 
@@ -235,7 +240,13 @@ void RenderImGui()
 		openFileName.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 		if (GetOpenFileName(&openFileName))
 		{
-			printf("file clicked \n");
+			std::string infile = openFileName.lpstrFile;
+			printf("Opening new scene file... \n");
+			if (loadNewScene != nullptr)
+			{
+				loadNewScene(infile);
+				//return;
+			}
 		}
 	}
 
@@ -259,7 +270,10 @@ void mainLoop() {
 		
 		glfwPollEvents();
 
-		runCuda();
+		if (sceneIsReady)
+		{
+			runCuda();
+		}
 
 		string title = "CIS565 Path Tracer | " + utilityCore::convertIntToString(iteration) + " Iterations";
 		glfwSetWindowTitle(window, title.c_str());

@@ -363,11 +363,9 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                     }
                 }
                 else if (attribute.first == "NORMAL") {
-                    //std::cout << "Encountered normal" << count << std::endl;
                     if (attribAccessor.type == TINYGLTF_TYPE_VEC3) {
                         if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) {
                             for (size_t i = 0; i < count; i++, a += byte_stride) {
-                                //std::cout << "push normal" << std::endl;
                                 tmpNormals.push_back(*((float3*)a));
                             }
                         }
@@ -405,8 +403,7 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                             char* coordNumStr = strtok(NULL, "_");
                             int coordNum = atoi(coordNumStr);
                             for (size_t i = 0; i < count; i++, a += byte_stride) {
-                                tmpUvs[coordNum].push_back(*((float2*)a)); //texture a texture assigned texcoord 1 with this uv.
-                                //std::cout << "coordNUm: " << coordNum << "contains: " << ((float2*)a)->x << " , " << ((float2*)a)->y << std::endl;
+                                tmpUvs[coordNum].push_back(*((float2*)a)); 
                                 maxTexCoord = std::max(coordNum, maxTexCoord);
                             }
                         }
@@ -424,46 +421,11 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                     if (attribAccessor.type == TINYGLTF_TYPE_VEC4) {
                         if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) {
                             for (size_t i = 0; i < count; i++, a += byte_stride) {
-                                //std::cout << "push tangent" << std::endl;
-                                //tmpTangents.push_back(*((float4*)a));
-                                //tmpTangents.push_back(*((float4*)a));
 
-                                //float afloat = *((float*)a);
-                                //std::cout << "aFloat: " << afloat << std::endl;
-                                //std::cout << "================================" << std::endl;
-
-                                //float2 afloat2 = *((float2*)a);
-                                //std::cout << "afloat2.x: " << afloat2.x << std::endl;
-                                //std::cout << "afloat2.y: " << afloat2.y << std::endl;
-                                //std::cout << "================================" << std::endl;
-
-
-                                //float3 afloat3 = *((float3*)a);
-                                //std::cout << "afloat3.x: " << afloat3.x << std::endl;
-                                //std::cout << "afloat3.y: " << afloat3.y << std::endl;
-                                //std::cout << "afloat3.z: " << afloat3.z << std::endl;
-                                //std::cout << "================================" << std::endl;
-
-                                // DebugBreak();
                                 float4 afloat4 = float4{ *((float*)a),
                                     *((float*)(a + 4)),
                                     *((float*)(a + 8)),
                                     *((float*)(a + 12)) };
-
-                                //std::cout << "afloat4.x: " << afloat4.x << std::endl;
-                                //std::cout << "afloat4.y: " << afloat4.y << std::endl;
-                                //std::cout << "afloat4.z: " << afloat4.z << std::endl;
-                                //std::cout << "afloat4.w: " << afloat4.w << std::endl;
-                                //std::cout << "================================" << std::endl;
-
-                                //float ay = *((float*)(a + 1));
-                                //std::cout << "ay " << ay << std::endl;
-
-                                /*float az = *((float*)(a + 2));
-                                std::cout << "az " << az << std::endl;
-
-                                float aw = *((float*)(a + 3));
-                                std::cout << "aw " << aw << std::endl;*/
 
 
                                 tmpTangents.push_back(afloat4);
@@ -1157,11 +1119,11 @@ int Scene::loadCamera() {
     float fovx = (atan(xscaled) * 180) / PI;
     camera.fov = glm::vec2(fovx, fovy);
 
+    camera.view = glm::normalize(camera.lookAt - camera.position);
+
     camera.right = glm::normalize(glm::cross(camera.view, camera.up));
     camera.pixelLength = glm::vec2(2 * xscaled / (float)camera.resolution.x,
         2 * yscaled / (float)camera.resolution.y);
-
-    camera.view = glm::normalize(camera.lookAt - camera.position);
 
     //set up render camera stuff
     int arraylen = camera.resolution.x * camera.resolution.y;

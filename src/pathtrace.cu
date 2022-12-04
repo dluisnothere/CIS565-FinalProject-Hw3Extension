@@ -81,6 +81,7 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
 		color.z = glm::clamp((int)(pix.z / iter * 255.0), 0, 255);
 
 		// Each thread writes one pixel location in the texture (textel)
+
 		pbo[index].w = 0;
 		pbo[index].x = color.x;
 		pbo[index].y = color.y;
@@ -121,6 +122,7 @@ static cudaEvent_t endEvent = NULL;
 void InitDataContainer(GuiDataContainer* imGuiData)
 {
 	guiData = imGuiData;
+	//guiData->TracedDepth = 8;
 }
 
 // specialized function just to cudaMalloc textures
@@ -275,11 +277,15 @@ void pathtraceInit(Scene* scene) {
 
 void pathtraceFree() {
 	cudaFree(dev_image);  // no-op if dev_image is null
+	checkCUDAError("cudaFree dev_image failed");
 	cudaFree(dev_paths);
+	checkCUDAError("cudaFree dev_paths failed");
 
 	int numG = numGeoms;
 	Geom* tmp_geom_pointer = new Geom[numG];
 	cudaMemcpy(tmp_geom_pointer, dev_geoms, numG * sizeof(Geom), cudaMemcpyDeviceToHost);
+	checkCUDAError("cudaMemcpy tmp_geom_pointer failed");
+
 	for (int i = 0; i < numGeoms; i++) {
 		if (tmp_geom_pointer[i].type == OBJ || tmp_geom_pointer[i].type == GLTF) {
 			int numTris = tmp_geom_pointer->numTris;
@@ -1108,6 +1114,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 		if (guiData != NULL)
 		{
 			guiData->TracedDepth = depth;
+			//guiData->TracedDepth = 8;
 		}
 	}
 

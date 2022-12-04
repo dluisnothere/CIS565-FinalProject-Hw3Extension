@@ -30,6 +30,138 @@ int iteration;
 int width;
 int height;
 
+bool sceneIsReady;
+bool sceneWasReset = false;
+
+void LoadNewSceneFromFile(std::string& file)
+{
+	printf("Load me baby: %s", file.c_str());
+	sceneIsReady = false;
+	sceneWasReset = true;
+
+	// debug print after loading scene, ensure the scene has a geometry. If it has geometry
+	pathtraceFree();
+	//cudaDeviceReset();
+
+	printf("Creating new scene... \n");
+	scene->~Scene();
+	scene = new Scene(file);
+
+	// Load scene file
+	//scene = new Scene(sceneFile);
+
+	//Create Instance for ImGUIData
+	//guiData = new GuiDataContainer();
+
+	// Set up camera stuff from loaded path tracer settings
+	iteration = 0;
+	renderState = &scene->state;
+	Camera& cam = renderState->camera;
+	width = cam.resolution.x;
+	height = cam.resolution.y;
+
+	glm::vec3 view = cam.view;
+	glm::vec3 up = cam.up;
+	glm::vec3 right = glm::cross(view, up);
+	up = glm::cross(right, view);
+
+	cameraPosition = cam.position;
+
+	// compute phi (horizontal) and theta (vertical) relative 3D axis
+	// so, (0 0 1) is forward, (0 1 0) is up
+	glm::vec3 viewXZ = glm::vec3(view.x, 0.0f, view.z);
+	glm::vec3 viewZY = glm::vec3(0.0f, view.y, view.z);
+	phi = glm::acos(glm::dot(glm::normalize(viewXZ), glm::vec3(0, 0, -1)));
+	theta = glm::acos(glm::dot(glm::normalize(viewZY), glm::vec3(0, 1, 0)));
+	ogLookAt = cam.lookAt;
+	zoom = glm::length(cam.position - ogLookAt);
+
+
+	sceneIsReady = true;
+
+	guiData->TracedDepth = scene->state.traceDepth;
+	printf("debug print just for pause purpose \n");
+
+	InitImguiData(guiData);
+	InitDataContainer(guiData);
+
+
+	//initCuda();
+
+	// INITCUDA
+	//cudaGLSetGLDevice(0);
+
+
+	// Clean up on program exit
+	//atexit(cleanupCuda);
+
+	//delete scene;
+	//scene = nullptr;
+
+	//// Initialize other stuff
+	//initVAO();
+	GLuint positionLocation = 0;
+	GLuint texcoordsLocation = 1;
+
+	GLfloat vertices[] = {
+		-1.0f, -1.0f,
+		1.0f, -1.0f,
+		1.0f,  1.0f,
+		-1.0f,  1.0f,
+	};
+
+	GLfloat texcoords[] = {
+		1.0f, 1.0f,
+		0.0f, 1.0f,
+		0.0f, 0.0f,
+		1.0f, 0.0f
+	};
+
+	GLushort indices[] = { 0, 1, 3, 3, 1, 2 };
+
+	GLuint vertexBufferObjID[3];
+	glGenBuffers(3, vertexBufferObjID);
+
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObjID[0]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	glVertexAttribPointer((GLuint)positionLocation, 2, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(positionLocation);
+
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObjID[1]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(texcoords), texcoords, GL_STATIC_DRAW);
+	glVertexAttribPointer((GLuint)texcoordsLocation, 2, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(texcoordsLocation);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferObjID[2]);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	//initTextures();
+	GLuint displayImage;
+
+	glGenTextures(1, &displayImage);
+	glBindTexture(GL_TEXTURE_2D, displayImage);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+
+	//initCuda();
+
+	//initPBO();
+	int num_texels = width * height;
+	int num_values = num_texels * 4;
+	int size_tex_data = sizeof(GLubyte) * num_values;
+
+	// Generate a buffer ID called a PBO (Pixel Buffer Object)
+	glGenBuffers(1, &pbo);
+
+	// Make this the current UNPACK buffer (OpenGL is state-based)
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+
+	// Allocate data for the buffer. 4-channel 8-bit image
+	glBufferData(GL_PIXEL_UNPACK_BUFFER, size_tex_data, NULL, GL_DYNAMIC_COPY);
+	cudaGLRegisterBufferObject(pbo);
+}
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -74,11 +206,13 @@ int main(int argc, char** argv) {
 	zoom = glm::length(cam.position - ogLookAt);
 
 	// Initialize CUDA and GL components
-	init();
+	init(LoadNewSceneFromFile);
 
 	// Initialize ImGui Data
 	InitImguiData(guiData);
 	InitDataContainer(guiData);
+
+	sceneIsReady = true;
 
 	// GLFW main loop
 	mainLoop();
@@ -134,7 +268,9 @@ void runCuda() {
 	// No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
 
 	if (iteration == 0) {
-		pathtraceFree();
+		if (!sceneWasReset) {
+			pathtraceFree();
+		}
 		pathtraceInit(scene);
 	}
 
