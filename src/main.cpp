@@ -32,7 +32,7 @@ int iteration;
 int width;
 int height;
 
-#define useSAR 1
+#define useSAR 0
 #define constRayCast 1
 
 //All these params are for SAR tracing

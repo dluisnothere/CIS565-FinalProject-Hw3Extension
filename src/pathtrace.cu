@@ -7,6 +7,7 @@
 #include <thrust/sort.h>
 #include <thrust/distance.h>
 #include <thrust/partition.h>
+#include <thrust/extrema.h>
 #include <thrust/execution_policy.h>
 #include <thrust/device_vector.h>
 #include <iostream>
@@ -437,9 +438,11 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 
 #endif
 		segment.pixelIndex = index;
-
+		segment.pixelIndexX = x;
+		segment.pixelIndexY = y;
 		// debug hard code to 2 instead of traceDepth;
 		segment.remainingBounces = traceDepth;
+		segment.length = 0.f;
 	}
 }
 
@@ -602,6 +605,17 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
 	}
 }
 
+__global__ void finalGatherTest(int nPaths, glm::vec3* image, PathSegment* iterationPaths, float maxRange)
+{
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+	if (index < nPaths)
+	{
+		PathSegment iterationPath = iterationPaths[index];
+		image[iterationPath.pixelIndex] += glm::vec3(maxRange/32.f);
+	}
+}
+
 // thrust predicate to end rays that don't hit anything
 struct invalid_intersection
 {
@@ -742,6 +756,7 @@ __global__ void kernComputeShadeSAR(
 			pathSegments[idx].color = 0.7f * resultColor * pathSegments[idx].color;
 			pathSegments[idx].color += glm::vec3(u01(rng) * 0.1f);
 			pathSegments[idx].remainingBounces = 0;
+			pathSegments[idx].length += intersection.t;
 
 			//update ray
 			/*pathSegments[idx].ray.origin = pathSegments[idx].ray.origin + intersection.t * pathSegments[idx].ray.direction + 0.01f * N;
@@ -750,6 +765,7 @@ __global__ void kernComputeShadeSAR(
 		else {
 			pathSegments[idx].color = glm::vec3(0.0f);
 			pathSegments[idx].remainingBounces = 0;
+			pathSegments[idx].length = 0.f;
 		}
 	}
 	
@@ -763,6 +779,42 @@ __global__ void computeIntersectionsWithLight(
 	, Material* materials
 ) {
 
+}
+
+struct compare_range {
+	__host__ __device__
+		bool operator()(PathSegment pathSegment1, PathSegment pathSegment2)
+	{
+		return pathSegment1.length < pathSegment2.length;
+	}
+};
+
+__global__ void kernTransToAzimuthRange(
+	int num_paths,
+	PathSegment* pathSegments,
+	float maxRange,
+	float minRange,
+	int camResolutionX,
+	int camResolutionY
+)
+{
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx < num_paths)
+	{
+		PathSegment& pathSegment = pathSegments[idx];
+		int y = glm::floor(((pathSegment.length - minRange) / (maxRange - minRange)) * camResolutionY);
+		if (y < 0) {
+			y = 0;
+		}
+		pathSegment.pixelIndex = pathSegment.pixelIndexX + (y * camResolutionX);
+	}
+}
+
+__global__ void kernGetLongestRange(
+	PathSegment* pathSegment,
+	Scene* scene
+) {
+	scene->state.camera.maxRange = pathSegment->length;
 }
 
 #if DIRECT_LIGHTING
@@ -1206,7 +1258,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 			);
 #endif
 #endif
-
+		
 		cudaDeviceSynchronize();
 
 		// 4. remove_if sorts all contents such that useless paths are all at the end.
@@ -1230,19 +1282,22 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 		}
 	}
 
-#if PERF_ANALYSIS
-	cudaEventRecord(endEvent);
-	cudaEventSynchronize(endEvent);
-
-	float time; // in ms
-
-	cudaEventElapsedTime(&time, beginEvent, endEvent);
-	printf("time: %f, iter: %i \n", time, iter);
-#endif
 
 	// Assemble this iteration and apply it to the image
 	dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
+
+	//calculate maxRange and minRange to form image in azimuth-range plane
+	PathSegment* longestSeg = thrust::max_element(thrust::device, dev_paths, dev_paths + num_paths, compare_range());
+	PathSegment* shortestSeg = thrust::min_element(thrust::device, dev_paths, dev_paths + num_paths, compare_range());
+	PathSegment host_maxRange;
+	PathSegment host_minRange;
+	cudaMemcpy(&host_maxRange, longestSeg, sizeof(PathSegment), cudaMemcpyDeviceToHost);
+	cudaMemcpy(&host_minRange, shortestSeg, sizeof(PathSegment), cudaMemcpyDeviceToHost);
+
+	kernTransToAzimuthRange << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths, host_maxRange.length, host_minRange.length, cam.resolution.x, cam.resolution.y);
+
 	finalGather << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_paths);
+
 
 	cudaDeviceSynchronize(); // maybe dont need
 
