@@ -8,7 +8,9 @@ CIS565 Final Project - Hardware Accelerated SAR Simulator
 
 ## Introduction and Motivation
 
-In 3D rendering, Pathtracing is a technique that generates realistic looking scenes/images by simulating light ray bounces. To that effect, SAR simulation works very similarly. Both processes cast rays from a starting point: In path tracing, the pinhole camera; In SAR simulation, the antenna which emits waves. This means operations to make an SAR simulator are embarrassingly parallel and can be optimized by the GPU. Our team lends our knowledge of GPU-based raytracing to better understand and implement a project for RADAR. Our hope is that this can contribute to developing more open-source SAR simulators that can be helpful for aircraft/vehicle designers. We also hope that these outputs can be used as easy data-gathering for any AI-based image-recognition for the typically blurry images produced by real SARs.
+In 3D rendering, Pathtracing is a technique that generates realistic looking scenes/images by simulating light ray bounces. To that effect, SAR simulation works very similarly. Both processes cast rays from a starting point: In path tracing, the pinhole camera; In SAR simulation, the antenna which emits waves. This means operations to make an SAR simulator are embarrassingly parallel and can be optimized by the GPU. Our team lends our knowledge of GPU-based raytracing to better understand its applications outside of visible light-based image outputs. 
+
+Our hope is that this can contribute to the development of more open-source SAR simulators that can be helpful for aircraft/vehicle designers. We also hope that these outputs can be used as easy data-gathering for any AI-based image-recognition for the typically blurry images produced by real SARs.
 
 _BEST FINAL RENDER/IMAGE GALLERY GOES HERE_
 
