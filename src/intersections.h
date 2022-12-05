@@ -365,3 +365,90 @@ __host__ __device__ float triangleIntersectionTest(Geom* geom, Triangle* triangl
 
 }
 #endif
+__host__ __device__ float treeIntersectionTest(
+    Geom* geom
+    , Ray r
+    , glm::vec3& intersectionPoint
+    , glm::vec3& normal
+    , glm::vec2& uv
+    , bool& outside
+    , KDNode* trees
+    , int node_idx) {
+
+    
+
+    bool hitObj; // for use in procedural texturing
+    glm::vec3 tmp_intersect;
+    glm::vec3 tmp_normal;
+    glm::vec2 tmp_uv = glm::vec2(-1, -1);
+    bool tmpHitObj = false;
+    bool changedTmin = false;
+
+    float t_min = FLT_MAX;
+    
+    if (node_idx == -1) {
+        printf("%d \n", node_idx);
+        return -1;
+    }
+    KDNode& node = trees[node_idx];
+    //printf("%d \n", node_idx);
+    float boxT = boundBoxNodeIntersectionTest(geom, r, tmp_intersect, tmp_normal, outside, node.bound);
+    
+    if (boxT != -1) {
+
+        float t = triangleIntersectionTest(geom, &geom->device_tris[node.trisIndex], r, tmp_intersect, tmp_normal, tmp_uv, outside);
+        tmpHitObj = true;
+        
+
+        if (t > 0.0f && t_min > t)
+        {
+            t_min = t;
+            intersectionPoint = tmp_intersect;
+            normal = tmp_normal;
+            uv = tmp_uv;
+            hitObj = tmpHitObj;
+            changedTmin = true;
+        }
+       
+
+        if (node.near_node >= 0) {
+            t = treeIntersectionTest(geom, r, tmp_intersect, tmp_normal, tmp_uv, outside, trees, node.near_node);
+            //return t_min;
+
+            if (t > 0.0f && t_min > t)
+            {
+                t_min = t;
+                intersectionPoint = tmp_intersect;
+                normal = tmp_normal;
+                uv = tmp_uv;
+                hitObj = tmpHitObj;
+                changedTmin = true;
+            }
+
+        }
+
+        if (node.far_node >= 0) {
+            t = treeIntersectionTest(geom, r, tmp_intersect, tmp_normal, tmp_uv, outside, trees, node.far_node);
+
+            if (t > 0.0f && t_min > t)
+            {
+                t_min = t;
+                intersectionPoint = tmp_intersect;
+                normal = tmp_normal;
+                uv = tmp_uv;
+                hitObj = tmpHitObj;
+                changedTmin = true;
+            }
+        }
+
+        if (changedTmin) {
+            return t_min;
+        }
+        return -1;
+        
+    }
+    else {
+        return -1;
+    }
+
+}

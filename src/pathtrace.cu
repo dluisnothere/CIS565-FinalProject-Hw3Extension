@@ -282,7 +282,10 @@ void pathtraceInit(Scene* scene) {
 	cudaEventCreate(&beginEvent);
 	cudaEventCreate(&endEvent);
 #endif
-
+	size_t size;
+	cudaDeviceSetLimit(cudaLimitStackSize, 135200);
+	cudaDeviceGetLimit(&size, cudaLimitStackSize);
+	printf("stack size in bytes %d \n", size);
 	checkCUDAError("pathtraceInit");
 }
 
@@ -445,6 +448,11 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 	}
 }
 
+__host__ __device__
+void kdSearch(int iter, int index, int depth) {
+	
+}
+
 // TODO:
 // computeIntersections handles generating ray intersections ONLY.
 // Generating new rays is handled in your shader(s).
@@ -507,57 +515,17 @@ __global__ void computeIntersections(
 
 				if (boxT != -1) {
 #if USE_KD
-					bool keepGoing = true;
-					int node_idx = -1;
-					int temp_node_idx = geom.root;
-					Instruction next_instruction = DOWN;
-					while (keepGoing) {
-						if (temp_node_idx >= 0) {
-							//Everything normal
-							node_idx = temp_node_idx;
-						}
-						else {
-							//Last node terminates, if relation was left, then we go right, if relation was right we go up
-							if (next_instruction == DOWN) {
-								temp_node_idx = kdtrees[node_idx].far_node;
-								next_instruction = CROSS;
-							}
-							else if (next_instruction == CROSS) {
-								temp_node_idx = kdtrees[node_idx].parent_node;
-								next_instruction = UP;
-							}
-						}
-						KDNode& node = kdtrees[node_idx];
 
-						boxT = boundBoxNodeIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal, outside, node.bound);
-						if (boxT != -1) {
-#if BUMP_MAP
-							cudaTextureObject_t texObj = textureObjs[geom.textureid];
-							Texture tex = texs[geom.textureid];
-							t = triangleIntersectionTest(&geom, &geom.device_tris[node.trisIndex], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, texObj, tex, outside);
-#else
-							t = triangleIntersectionTest(&geom, &geom.device_tris[node.trisIndex], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, outside);
-#endif
-							tmpHitObj = true;
-
-							if (t > 0.0f && t_min > t)
-							{
-								t_min = t;
-								hit_geom_index = i;
-								intersect_point = tmp_intersect;
-								normal = tmp_normal;
-								uv = tmp_uv;
-								hitObj = tmpHitObj;
-							}
-
-							temp_node_idx = node.near_node;
-							next_instruction = LEFT;
-						}
-						else {
-							if (next_instruction == ROOT) {
-								keepGoing = false;
-							} 
-						}
+					t = treeIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal,  tmp_uv, outside, kdtrees, geom.root);
+					tmpHitObj = true;
+					if (t > 0.0f && t_min > t)
+					{
+						t_min = t;
+						hit_geom_index = i;
+						intersect_point = tmp_intersect;
+						normal = tmp_normal;
+						uv = tmp_uv;
+						hitObj = tmpHitObj;
 					}
 #else
 					for (int j = 0; j < geom.numTris; j++) {
