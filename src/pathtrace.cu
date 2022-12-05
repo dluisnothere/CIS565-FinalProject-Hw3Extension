@@ -7,6 +7,7 @@
 #include <thrust/sort.h>
 #include <thrust/distance.h>
 #include <thrust/partition.h>
+#include <thrust/extrema.h>
 #include <thrust/execution_policy.h>
 #include <thrust/device_vector.h>
 #include <iostream>
@@ -33,6 +34,10 @@
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
+
+//SAR
+#define ORTHOGRAPHIC 1
+#define SARNAIVE 1
 
 PerformanceTimer& timer()
 {
@@ -335,15 +340,16 @@ void pathtraceFree() {
 Geom generateNewReceiverFromCamera(Camera cam) {
 	Geom newGeom;
 	newGeom.type = CUBE;
-	newGeom.translation = glm::vec3(cam.position) * 1.1f;
+	/*newGeom.translation = glm::vec3(cam.position) * 1.1f;*/
 	glm::vec3 u = glm::vec3(0.0, 0.0, 1.0);
 	glm::vec3 v = cam.view;
+	newGeom.translation = glm::vec3(cam.position) - 0.1f * v;
 	float x_angle = glm::acos(glm::dot(glm::vec2(u.y, u.z), glm::vec2(v.y, v.z))) * 180.f / PI;
 	float y_angle = glm::acos(glm::dot(glm::vec2(u.x, u.z), glm::vec2(v.x, v.z))) * 180.f / PI;
 	float z_angle = glm::acos(glm::dot(glm::vec2(u.x, u.y), glm::vec2(v.x, v.y))) * 180.f / PI;
 	newGeom.rotation = glm::vec3(x_angle, y_angle, z_angle);
 	//this scal is arbitrary
-	newGeom.scale = glm::vec3(5.0, 5.0, .1);
+	newGeom.scale = glm::vec3(cam.pixelLength.x * cam.resolution.x * 0.5f, cam.pixelLength.y * cam.resolution.y * 0.5f, 0.001f);
 
 	newGeom.transform = utilityCore::buildTransformationMatrix(
 		newGeom.translation, newGeom.rotation, newGeom.scale);
@@ -378,8 +384,6 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 		int index = x + (y * cam.resolution.x);
 		PathSegment& segment = pathSegments[index];
 
-		segment.ray.origin = cam.position;
-
 		segment.color = glm::vec3(1.0f, 1.0f, 1.0f);
 
 		// TODO: implement antialiasing by jittering the ray
@@ -392,10 +396,19 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 			- cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * u01(rng))
 		);
 #else
+#if ORTHOGRAPHIC
+		segment.ray.origin = cam.position
+			- cam.right * cam.pixelLength.x * ((float)x - (float)cam.resolution.x * 0.5f)
+			- cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * 0.5f);
+
+		segment.ray.direction = cam.view;
+#else
+		segment.ray.origin = cam.position;
 		segment.ray.direction = glm::normalize(cam.view
 			- cam.right * cam.pixelLength.x * ((float)x - (float)cam.resolution.x * 0.5f)
 			- cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * 0.5f)
 		);
+#endif
 #endif
 
 #if DEPTH_OF_FIELD
@@ -425,9 +438,11 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 
 #endif
 		segment.pixelIndex = index;
-
+		segment.pixelIndexX = x;
+		segment.pixelIndexY = y;
 		// debug hard code to 2 instead of traceDepth;
 		segment.remainingBounces = traceDepth;
+		segment.length = 0.f;
 	}
 }
 
@@ -454,6 +469,9 @@ __global__ void computeIntersections(
 	{
 		PathSegment pathSegment = pathSegments[path_index];
 
+		if (pathSegment.remainingBounces == 0) {
+			return;
+		}
 		float t;
 		glm::vec3 intersect_point;
 		glm::vec3 normal;
@@ -587,6 +605,17 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
 	}
 }
 
+__global__ void finalGatherTest(int nPaths, glm::vec3* image, PathSegment* iterationPaths, float maxRange)
+{
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+
+	if (index < nPaths)
+	{
+		PathSegment iterationPath = iterationPaths[index];
+		image[iterationPath.pixelIndex] += glm::vec3(maxRange/32.f);
+	}
+}
+
 // thrust predicate to end rays that don't hit anything
 struct invalid_intersection
 {
@@ -686,6 +715,106 @@ __global__ void kernComputeShade(
 			pathSegments[idx].color = glm::vec3(0.0f);
 		}
 	}
+}
+
+__global__ void kernComputeShadeSAR(
+	int iter
+	, int num_paths
+	, ShadeableIntersection* shadeableIntersections
+	, PathSegment* pathSegments
+	, Material* materials
+)
+{
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx < num_paths)
+	{
+		ShadeableIntersection intersection = shadeableIntersections[idx];
+		if (intersection.t > 0.0f) { // if the intersection exists...
+			Material material = materials[intersection.materialId];
+			if (material.emittance > 0.0f) {
+				pathSegments[idx].remainingBounces = 0;
+				return;
+			}
+			thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, 0);
+			thrust::uniform_real_distribution<float> u01(0, 1);
+			float k = 0.5f;
+			float b = 0.05f;
+			float s = 0.5f;
+			float r = 0.1f;
+			//k: material.hasRefractive, REFR
+			//b: material.indexOfRefraction, REFRIOR
+			//s: material.hasReflective, REFL
+			//r: material.specular.exponent, SPECEX
+			
+			glm::vec3 N = glm::normalize(intersection.surfaceNormal);
+			glm::vec3 L = glm::normalize(-pathSegments[idx].ray.direction);
+			glm::vec3 H = glm::normalize(N + L);
+			glm::vec3 V = glm::reflect(glm::normalize(pathSegments[idx].ray.direction), N);
+			float Id = k * pathSegments[idx].color.r * glm::pow(glm::dot(N, L), b);
+			float Is = s * glm::pow(glm::dot(N, H), r);
+			float resultColor = Id + Is;
+			pathSegments[idx].color = 0.7f * resultColor * pathSegments[idx].color;
+			pathSegments[idx].color += glm::vec3(u01(rng) * 0.1f);
+			pathSegments[idx].remainingBounces = 0;
+			pathSegments[idx].length += intersection.t;
+
+			//update ray
+			/*pathSegments[idx].ray.origin = pathSegments[idx].ray.origin + intersection.t * pathSegments[idx].ray.direction + 0.01f * N;
+			pathSegments[idx].ray.direction = V;*/
+		}
+		else {
+			pathSegments[idx].color = glm::vec3(0.0f);
+			pathSegments[idx].remainingBounces = 0;
+			pathSegments[idx].length = 0.f;
+		}
+	}
+	
+}
+
+__global__ void computeIntersectionsWithLight(
+	int iter
+	, int num_paths
+	, ShadeableIntersection* shadeableIntersections
+	, PathSegment* pathSegments
+	, Material* materials
+) {
+
+}
+
+struct compare_range {
+	__host__ __device__
+		bool operator()(PathSegment pathSegment1, PathSegment pathSegment2)
+	{
+		return pathSegment1.length < pathSegment2.length;
+	}
+};
+
+__global__ void kernTransToAzimuthRange(
+	int num_paths,
+	PathSegment* pathSegments,
+	float maxRange,
+	float minRange,
+	int camResolutionX,
+	int camResolutionY
+)
+{
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx < num_paths)
+	{
+		PathSegment& pathSegment = pathSegments[idx];
+		int y = glm::floor(((pathSegment.length - minRange) / (maxRange - minRange)) * camResolutionY);
+		if (y < 0) {
+			y = 0;
+		}
+		pathSegment.pixelIndex = pathSegment.pixelIndexX + (y * camResolutionX);
+	}
+}
+
+__global__ void kernGetLongestRange(
+	PathSegment* pathSegment,
+	Scene* scene
+) {
+	scene->state.camera.maxRange = pathSegment->length;
 }
 
 #if DIRECT_LIGHTING
@@ -1106,6 +1235,16 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 #endif
 			);
 #else 
+#if SARNAIVE
+		kernComputeShadeSAR << <numblocksPathSegmentTracing, blockSize1d >> > (
+			iter,
+			currNumPaths,
+			dev_intersections,
+			dev_paths,
+			dev_materials
+);
+		
+#else
 		kernComputeShade << <numblocksPathSegmentTracing, blockSize1d >> > (
 			iter,
 			currNumPaths,
@@ -1118,7 +1257,8 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 #endif
 			);
 #endif
-
+#endif
+		
 		cudaDeviceSynchronize();
 
 		// 4. remove_if sorts all contents such that useless paths are all at the end.
@@ -1142,19 +1282,22 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 		}
 	}
 
-#if PERF_ANALYSIS
-	cudaEventRecord(endEvent);
-	cudaEventSynchronize(endEvent);
-
-	float time; // in ms
-
-	cudaEventElapsedTime(&time, beginEvent, endEvent);
-	printf("time: %f, iter: %i \n", time, iter);
-#endif
 
 	// Assemble this iteration and apply it to the image
 	dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
+
+	//calculate maxRange and minRange to form image in azimuth-range plane
+	PathSegment* longestSeg = thrust::max_element(thrust::device, dev_paths, dev_paths + num_paths, compare_range());
+	PathSegment* shortestSeg = thrust::min_element(thrust::device, dev_paths, dev_paths + num_paths, compare_range());
+	PathSegment host_maxRange;
+	PathSegment host_minRange;
+	cudaMemcpy(&host_maxRange, longestSeg, sizeof(PathSegment), cudaMemcpyDeviceToHost);
+	cudaMemcpy(&host_minRange, shortestSeg, sizeof(PathSegment), cudaMemcpyDeviceToHost);
+
+	kernTransToAzimuthRange << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths, host_maxRange.length, host_minRange.length, cam.resolution.x, cam.resolution.y);
+
 	finalGather << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_paths);
+
 
 	cudaDeviceSynchronize(); // maybe dont need
 

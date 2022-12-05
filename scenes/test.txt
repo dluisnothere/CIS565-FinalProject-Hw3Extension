@@ -1,0 +1,101 @@
+// Emissive material (light)
+MATERIAL 0
+RGB         1 1 1
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   20
+
+// Diffuse white
+MATERIAL 1
+RGB         .98 .98 .98
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Diffuse red
+MATERIAL 2
+RGB         .85 .35 .35
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Diffuse green
+MATERIAL 3
+RGB         .35 .85 .35
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Specular purple
+MATERIAL 4
+RGB         .89 .89 .97
+SPECEX      0
+SPECRGB     0 0 0
+REFL        0
+REFR        0
+REFRIOR     0
+EMITTANCE   0
+
+// Camera
+CAMERA
+RES         1980 1080
+FOVY        45
+ITERATIONS  12000000
+DEPTH       1
+FILE        cornell
+EYE         0 5 1
+LOOKAT      0 1.25 -1.25
+UP          0 1 0
+
+
+// Floor
+OBJECT 0
+cube
+material 1
+TRANS       0 0 0
+ROTAT       0 0 0
+SCALE       2.5 .01 2.5
+
+// Ceiling
+OBJECT 1
+cube
+material 1
+TRANS       0 2.5 0
+ROTAT       0 0 90
+SCALE       .01 2.5 2.5
+
+// Back wall
+OBJECT 2
+cube
+material 1
+TRANS       0 1.25 -1.25
+ROTAT       0 90 0
+SCALE       .01 2.5 2.5
+
+// Left wall
+OBJECT 3
+cube
+material 2
+TRANS       -1.25 1.25 0
+ROTAT       0 0 0
+SCALE       .01 2.5 2.5
+
+// Right wall
+OBJECT 4
+cube
+material 3
+TRANS       1.25 1.25 0
+ROTAT       0 0 0
+SCALE       .01 2.5 2.5

@@ -171,6 +171,9 @@ struct Camera {
     glm::vec3 right;
     glm::vec2 fov;
     glm::vec2 pixelLength;
+
+    float maxRange;
+    float minRange;
 };
 
 struct RenderState {
@@ -211,6 +214,9 @@ struct PathSegment {
     glm::vec3 color;
     int pixelIndex;
     int remainingBounces;
+    float length;
+    int pixelIndexX;
+    int pixelIndexY;
 };
 
 // Use with a corresponding PathSegment to do:

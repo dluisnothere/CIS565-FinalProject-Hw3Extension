@@ -32,7 +32,7 @@ int iteration;
 int width;
 int height;
 
-#define useSAR 1
+#define useSAR 0
 #define constRayCast 1
 
 //All these params are for SAR tracing
@@ -236,6 +236,7 @@ void initReceiver() {
 
 	scene->materials.push_back(receiverMat);
 	scene->geoms.push_back(newGeom);
+	scene->numGeoms = g_idx + 1;
 }
 
 //Adjusts the camera pointer based on the inputs
@@ -286,12 +287,13 @@ void runCuda() {
 	}
 
 	if (usingSAR) {
-		if (iteration < traj->iterations * traj->snapshotCount) {
+		if (iteration < traj->iterations /** traj->snapshotCount*/) {
 
 			if (iteration % traj->iterations == 0) {
 				//std::cout << iteration << std::endl;
 				//Adjust Camera Pos
 				int idx = iteration / traj->iterations;
+				renderState->moveReceiver = true;
 				renderState->moveReceiver = true;
 				adjustCamera(traj->vehicleTraj[idx], traj->lookPositions[idx], traj->rightVecs[idx], &scene->state.camera);
 			}
