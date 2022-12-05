@@ -30,6 +30,8 @@ The scene files used in this project are laid out as blocks of text in this orde
 
 **Acceleration Structures**
 
+**GLTF Support**
+
 ## Performance Analysis
 
 ## Bloopers! :)
