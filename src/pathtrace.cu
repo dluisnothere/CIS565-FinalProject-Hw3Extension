@@ -101,6 +101,7 @@ static Geom* dev_geoms = NULL;
 static Material* dev_materials = NULL;
 static PathSegment* dev_paths = NULL;
 static ShadeableIntersection* dev_intersections = NULL;
+static KDNode* dev_kdtrees = NULL;
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
 #if CACHE_FIRST_BOUNCE
@@ -232,7 +233,12 @@ void pathtraceInit(Scene* scene) {
 	cudaMalloc(&dev_intersections, pixelcount * sizeof(ShadeableIntersection));
 	checkCUDAError("cudaMalloc dev_intersections failed");
 	cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
-	checkCUDAError("cudaMemcpy dev_intersectionsf ailed");
+	checkCUDAError("cudaMemcpy dev_intersections failed");
+
+	cudaMalloc(&dev_kdtrees, scene->vec_kdnode.size() * sizeof(KDNode));
+	checkCUDAError("cudaMalloc dev_kdtrees failed");
+	cudaMemcpy(dev_kdtrees, scene->vec_kdnode.data(), scene->vec_kdnode.size() * sizeof(KDNode), cudaMemcpyHostToDevice);
+	checkCUDAError("cudaMemcpy dev_kdtrees failed");
 
 #if USE_UV
 	cudaMalloc(&dev_textureChannels, scene->textures.size() * sizeof(int));
@@ -317,6 +323,7 @@ void pathtraceFree() {
 	cudaFree(dev_geoms);
 	cudaFree(dev_materials);
 	cudaFree(dev_intersections);
+	cudaFree(dev_kdtrees);
 	// TODO: clean up any extra device memory you created
 
 #if DIRECT_LIGHTING

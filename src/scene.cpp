@@ -51,7 +51,7 @@ Scene::Scene(string filename) {
             }
         }
     }
-    constructKDTrees();
+    //constructKDTrees();
 }
 
 void Scene::processGLTFNode(const tinygltf::Model& model, const tinygltf::Node& gltf_node, const glm::mat4& parent_matrix, std::vector<Geom>* geoms)
@@ -1343,12 +1343,14 @@ BoundBox Scene::buildBound(BoundBox box, Triangle t1, Triangle t2, int index, bo
     return new_box;
 }
 
-void Scene::createNode(int node_idx, int tri_idx, BoundBox bound, KDSPLIT split) {
+void Scene::createNode(int node_idx, int tri_idx, int parent_idx, BoundBox bound, KDSPLIT split, parentRelation rel) {
     vec_kdnode[node_idx].bound = bound;
     vec_kdnode[node_idx].trisIndex = tri_idx;
     vec_kdnode[node_idx].near_node = -1;
     vec_kdnode[node_idx].far_node = -1;
     vec_kdnode[node_idx].split = split;
+    vec_kdnode[node_idx].parent_node = parent_idx;
+    vec_kdnode[node_idx].relation = rel;
 }
 
 void Scene::pushdown(Triangle* tri_arr, int parent, BoundBox bound, int tri_idx) {
@@ -1409,11 +1411,13 @@ void Scene::pushdown(Triangle* tri_arr, int parent, BoundBox bound, int tri_idx)
     //New Node pushed to vec
     int node_idx = vec_kdnode.size();
     vec_kdnode.push_back(KDNode());
-    createNode(node_idx, tri_idx, new_bound, child_split);
+    
     if (useNear) {
+        createNode(node_idx, tri_idx, parent, new_bound, child_split, LEFT);
         vec_kdnode[parent].near_node = node_idx;
     }
     else {
+        createNode(node_idx, tri_idx, parent, new_bound, child_split, RIGHT);
         vec_kdnode[parent].far_node = node_idx;
     }
 }
@@ -1428,7 +1432,7 @@ void Scene::constructKDTrees() {
         vec_kdnode.push_back(KDNode());
         Triangle* tri_arr = ref->host_tris;
         if (ref->numTris >= 1) {
-            createNode(ref->root, 0, ref->bound, X);
+            createNode(ref->root, 0, -1, ref->bound, X, ROOT);
         }
 
         for (int j = 1; j < ref->numTris; j++) {

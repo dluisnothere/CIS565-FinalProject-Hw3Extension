@@ -36,6 +36,12 @@ enum KDSPLIT {
     Z
 };
 
+enum parentRelation {
+    LEFT,
+    RIGHT,
+    ROOT
+};
+
 struct BoundBox {
     glm::vec3 minCorner;
     glm::vec3 maxCorner;
@@ -67,6 +73,8 @@ struct Triangle {
 
 struct KDNode {
     KDSPLIT split;
+    parentRelation relation;
+    int parent_node;
     int near_node;
     int far_node;
     //Refers to the triangle buffer 

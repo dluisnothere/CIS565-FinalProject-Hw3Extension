@@ -26,7 +26,7 @@ private:
     //KDTree construction
     bool triCompare(Triangle t1, Triangle t2, int index); //true if t2 > t1 false if t2 < t1
     BoundBox buildBound(BoundBox box, Triangle t1, Triangle t2, int index, bool useNear);
-    void createNode(int node_idx, int tri_idx, BoundBox bound, KDSPLIT split); //called to fill a node in the kd node vector
+    void createNode(int node_idx, int tri_idx, int parent_idx, BoundBox bound, KDSPLIT split, parentRelation rel); //called to fill a node in the kd node vector
     void pushdown(Triangle* tri_arr, int parent, BoundBox bound, int tri_idx); //called to push a triangel down the tree
 public:
     void constructKDTrees();
