@@ -31,6 +31,7 @@
 #define DEPTH_OF_FIELD 0 // depth of field focus defined later
 #define DIRECT_LIGHTING 0
 #define PERF_ANALYSIS 0
+#define USE_KD 1
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -391,6 +392,8 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 		int index = x + (y * cam.resolution.x);
 		PathSegment& segment = pathSegments[index];
 
+		segment.ray.origin = cam.position;
+
 		segment.color = glm::vec3(1.0f, 1.0f, 1.0f);
 
 		// TODO: implement antialiasing by jittering the ray
@@ -403,19 +406,10 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 			- cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * u01(rng))
 		);
 #else
-#if ORTHOGRAPHIC
-		segment.ray.origin = cam.position
-			- cam.right * cam.pixelLength.x * ((float)x - (float)cam.resolution.x * 0.5f)
-			- cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * 0.5f);
-
-		segment.ray.direction = cam.view;
-#else
-		segment.ray.origin = cam.position;
 		segment.ray.direction = glm::normalize(cam.view
 			- cam.right * cam.pixelLength.x * ((float)x - (float)cam.resolution.x * 0.5f)
 			- cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * 0.5f)
 		);
-#endif
 #endif
 
 #if DEPTH_OF_FIELD
@@ -445,11 +439,9 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 
 #endif
 		segment.pixelIndex = index;
-		segment.pixelIndexX = x;
-		segment.pixelIndexY = y;
+
 		// debug hard code to 2 instead of traceDepth;
 		segment.remainingBounces = traceDepth;
-		segment.length = 0.f;
 	}
 }
 
@@ -464,10 +456,12 @@ __global__ void computeIntersections(
 	, Geom* geoms
 	, int geoms_size
 	, ShadeableIntersection* intersections
+	, KDNode* kdtrees
 #if BUMP_MAP
 	, cudaTextureObject_t* textureObjs
 	, Texture* texs
 #endif
+
 )
 {
 	int path_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -476,9 +470,6 @@ __global__ void computeIntersections(
 	{
 		PathSegment pathSegment = pathSegments[path_index];
 
-		if (pathSegment.remainingBounces == 0) {
-			return;
-		}
 		float t;
 		glm::vec3 intersect_point;
 		glm::vec3 normal;
@@ -513,8 +504,62 @@ __global__ void computeIntersections(
 			}
 			else if (geom.type == OBJ || geom.type == GLTF) {
 				float boxT = boundBoxIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
-				
+
 				if (boxT != -1) {
+#if USE_KD
+					bool keepGoing = true;
+					int node_idx = -1;
+					int temp_node_idx = geom.root;
+					Instruction next_instruction = DOWN;
+					while (keepGoing) {
+						if (temp_node_idx >= 0) {
+							//Everything normal
+							node_idx = temp_node_idx;
+						}
+						else {
+							//Last node terminates, if relation was left, then we go right, if relation was right we go up
+							if (next_instruction == DOWN) {
+								temp_node_idx = kdtrees[node_idx].far_node;
+								next_instruction = CROSS;
+							}
+							else if (next_instruction == CROSS) {
+								temp_node_idx = kdtrees[node_idx].parent_node;
+								next_instruction = UP;
+							}
+						}
+						KDNode& node = kdtrees[node_idx];
+
+						boxT = boundBoxNodeIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal, outside, node.bound);
+						if (boxT != -1) {
+#if BUMP_MAP
+							cudaTextureObject_t texObj = textureObjs[geom.textureid];
+							Texture tex = texs[geom.textureid];
+							t = triangleIntersectionTest(&geom, &geom.device_tris[node.trisIndex], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, texObj, tex, outside);
+#else
+							t = triangleIntersectionTest(&geom, &geom.device_tris[node.trisIndex], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, outside);
+#endif
+							tmpHitObj = true;
+
+							if (t > 0.0f && t_min > t)
+							{
+								t_min = t;
+								hit_geom_index = i;
+								intersect_point = tmp_intersect;
+								normal = tmp_normal;
+								uv = tmp_uv;
+								hitObj = tmpHitObj;
+							}
+
+							temp_node_idx = node.near_node;
+							next_instruction = LEFT;
+						}
+						else {
+							if (next_instruction == ROOT) {
+								keepGoing = false;
+							} 
+						}
+					}
+#else
 					for (int j = 0; j < geom.numTris; j++) {
 #if BUMP_MAP
 						cudaTextureObject_t texObj = textureObjs[geom.textureid];
@@ -535,6 +580,7 @@ __global__ void computeIntersections(
 							hitObj = tmpHitObj;
 						}
 					}
+#endif
 				}
 			}
 			else if (geom.type == TRIANGLE) {
@@ -612,17 +658,6 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
 	}
 }
 
-__global__ void finalGatherTest(int nPaths, glm::vec3* image, PathSegment* iterationPaths, float maxRange)
-{
-	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-
-	if (index < nPaths)
-	{
-		PathSegment iterationPath = iterationPaths[index];
-		image[iterationPath.pixelIndex] += glm::vec3(maxRange/32.f);
-	}
-}
-
 // thrust predicate to end rays that don't hit anything
 struct invalid_intersection
 {
@@ -694,7 +729,7 @@ __global__ void kernComputeShade(
 				// only care about the base texture for now
 				int texIndex = material.pbrMetallicRoughness.baseColorIdx;
 				int texOffset = material.pbrMetallicRoughness.baseColorOffset;
-				int texCoord = material.pbrMetallicRoughness.baseColorTexCoord; 
+				int texCoord = material.pbrMetallicRoughness.baseColorTexCoord;
 
 				int debugsum = texIndex + texOffset;
 
@@ -722,106 +757,6 @@ __global__ void kernComputeShade(
 			pathSegments[idx].color = glm::vec3(0.0f);
 		}
 	}
-}
-
-__global__ void kernComputeShadeSAR(
-	int iter
-	, int num_paths
-	, ShadeableIntersection* shadeableIntersections
-	, PathSegment* pathSegments
-	, Material* materials
-)
-{
-	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	if (idx < num_paths)
-	{
-		ShadeableIntersection intersection = shadeableIntersections[idx];
-		if (intersection.t > 0.0f) { // if the intersection exists...
-			Material material = materials[intersection.materialId];
-			if (material.emittance > 0.0f) {
-				pathSegments[idx].remainingBounces = 0;
-				return;
-			}
-			thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, 0);
-			thrust::uniform_real_distribution<float> u01(0, 1);
-			float k = 0.5f;
-			float b = 0.05f;
-			float s = 0.5f;
-			float r = 0.1f;
-			//k: material.hasRefractive, REFR
-			//b: material.indexOfRefraction, REFRIOR
-			//s: material.hasReflective, REFL
-			//r: material.specular.exponent, SPECEX
-			
-			glm::vec3 N = glm::normalize(intersection.surfaceNormal);
-			glm::vec3 L = glm::normalize(-pathSegments[idx].ray.direction);
-			glm::vec3 H = glm::normalize(N + L);
-			glm::vec3 V = glm::reflect(glm::normalize(pathSegments[idx].ray.direction), N);
-			float Id = k * pathSegments[idx].color.r * glm::pow(glm::dot(N, L), b);
-			float Is = s * glm::pow(glm::dot(N, H), r);
-			float resultColor = Id + Is;
-			pathSegments[idx].color = 0.7f * resultColor * pathSegments[idx].color;
-			pathSegments[idx].color += glm::vec3(u01(rng) * 0.1f);
-			pathSegments[idx].remainingBounces = 0;
-			pathSegments[idx].length += intersection.t;
-
-			//update ray
-			/*pathSegments[idx].ray.origin = pathSegments[idx].ray.origin + intersection.t * pathSegments[idx].ray.direction + 0.01f * N;
-			pathSegments[idx].ray.direction = V;*/
-		}
-		else {
-			pathSegments[idx].color = glm::vec3(0.0f);
-			pathSegments[idx].remainingBounces = 0;
-			pathSegments[idx].length = 0.f;
-		}
-	}
-	
-}
-
-__global__ void computeIntersectionsWithLight(
-	int iter
-	, int num_paths
-	, ShadeableIntersection* shadeableIntersections
-	, PathSegment* pathSegments
-	, Material* materials
-) {
-
-}
-
-struct compare_range {
-	__host__ __device__
-		bool operator()(PathSegment pathSegment1, PathSegment pathSegment2)
-	{
-		return pathSegment1.length < pathSegment2.length;
-	}
-};
-
-__global__ void kernTransToAzimuthRange(
-	int num_paths,
-	PathSegment* pathSegments,
-	float maxRange,
-	float minRange,
-	int camResolutionX,
-	int camResolutionY
-)
-{
-	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	if (idx < num_paths)
-	{
-		PathSegment& pathSegment = pathSegments[idx];
-		int y = glm::floor(((pathSegment.length - minRange) / (maxRange - minRange)) * camResolutionY);
-		if (y < 0) {
-			y = 0;
-		}
-		pathSegment.pixelIndex = pathSegment.pixelIndexX + (y * camResolutionX);
-	}
-}
-
-__global__ void kernGetLongestRange(
-	PathSegment* pathSegment,
-	Scene* scene
-) {
-	scene->state.camera.maxRange = pathSegment->length;
 }
 
 #if DIRECT_LIGHTING
@@ -1192,6 +1127,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 			, dev_geoms
 			, hst_scene->geoms.size()
 			, dev_intersections
+			, dev_kdtrees
 			, dev_textureObjs
 			, dev_textures
 			);
@@ -1204,6 +1140,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 			, dev_geoms
 			, hst_scene->geoms.size()
 			, dev_intersections
+			, dev_kdtrees
 			);
 		checkCUDAError("trace one bounce");
 #endif
@@ -1242,16 +1179,6 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 #endif
 			);
 #else 
-#if SARNAIVE
-		kernComputeShadeSAR << <numblocksPathSegmentTracing, blockSize1d >> > (
-			iter,
-			currNumPaths,
-			dev_intersections,
-			dev_paths,
-			dev_materials
-);
-		
-#else
 		kernComputeShade << <numblocksPathSegmentTracing, blockSize1d >> > (
 			iter,
 			currNumPaths,
@@ -1264,8 +1191,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 #endif
 			);
 #endif
-#endif
-		
+
 		cudaDeviceSynchronize();
 
 		// 4. remove_if sorts all contents such that useless paths are all at the end.
@@ -1289,22 +1215,19 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 		}
 	}
 
+#if PERF_ANALYSIS
+	cudaEventRecord(endEvent);
+	cudaEventSynchronize(endEvent);
+
+	float time; // in ms
+
+	cudaEventElapsedTime(&time, beginEvent, endEvent);
+	printf("time: %f, iter: %i \n", time, iter);
+#endif
 
 	// Assemble this iteration and apply it to the image
 	dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
-
-	//calculate maxRange and minRange to form image in azimuth-range plane
-	PathSegment* longestSeg = thrust::max_element(thrust::device, dev_paths, dev_paths + num_paths, compare_range());
-	PathSegment* shortestSeg = thrust::min_element(thrust::device, dev_paths, dev_paths + num_paths, compare_range());
-	PathSegment host_maxRange;
-	PathSegment host_minRange;
-	cudaMemcpy(&host_maxRange, longestSeg, sizeof(PathSegment), cudaMemcpyDeviceToHost);
-	cudaMemcpy(&host_minRange, shortestSeg, sizeof(PathSegment), cudaMemcpyDeviceToHost);
-
-	kernTransToAzimuthRange << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths, host_maxRange.length, host_minRange.length, cam.resolution.x, cam.resolution.y);
-
 	finalGather << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_paths);
-
 
 	cudaDeviceSynchronize(); // maybe dont need
 

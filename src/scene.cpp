@@ -51,7 +51,7 @@ Scene::Scene(string filename) {
             }
         }
     }
-    //constructKDTrees();
+    constructKDTrees();
 }
 
 void Scene::processGLTFNode(const tinygltf::Model& model, const tinygltf::Node& gltf_node, const glm::mat4& parent_matrix, std::vector<Geom>* geoms)
