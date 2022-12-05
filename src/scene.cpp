@@ -49,6 +49,7 @@ Scene::Scene(string filename) {
             }
         }
     }
+    constructKDTrees();
 }
 
 void Scene::processGLTFNode(const tinygltf::Model& model, const tinygltf::Node& gltf_node, const glm::mat4& parent_matrix, std::vector<Geom>* geoms)
@@ -619,7 +620,8 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
     }
 
     for (int i = 0; i < gltfGeoms.size(); i++) {
-        geoms.push_back(gltfGeoms[i]);
+        kdtree_indices.push_back(geoms.size());
+        geoms.push_back(gltfGeoms[i]);       
     }
 
     for (int i = 0; i < gltfMaterials.size(); i++) {
@@ -900,7 +902,9 @@ int Scene::loadGeom(string objectid) {
                 newGeom.host_tris[i] = triangleArray[i];
             }
 
+            int gltf_idx = geoms.size();
             geoms.push_back(newGeom);
+            kdtree_indices.push_back(gltf_idx);
 
 #else 
             // create geoms from triangles using newGeom properties
@@ -1295,4 +1299,138 @@ int Scene::loadTexture(string textureid) {
 
     textures.push_back(newTexture);
     return 1;
+}
+
+bool Scene::triCompare(Triangle t1, Triangle t2, int index) {
+    float t1_min = fmin(fmin(t1.pointA.pos[index], t1.pointB.pos[index]), t1.pointC.pos[index]);
+    float t2_min = fmin(fmin(t2.pointA.pos[index], t2.pointB.pos[index]), t2.pointC.pos[index]);
+
+    float t1_max = fmax(fmax(t1.pointA.pos[index], t1.pointB.pos[index]), t1.pointC.pos[index]);
+    float t2_max = fmax(fmax(t2.pointA.pos[index], t2.pointB.pos[index]), t2.pointC.pos[index]);
+    if (t2_min > t1_min) {
+        return true;
+    }
+    if (t2_max < t2_max) {
+        return false;
+    }
+
+    //If neither are true then just take an avg
+    float t1_avg = (t1.pointA.pos[index] + t1.pointB.pos[index] + t1.pointC.pos[index]) / 3.f;
+    float t2_avg = (t2.pointA.pos[index] + t2.pointB.pos[index] + t2.pointC.pos[index]) / 3.f;
+
+    if (t2_avg > t1_avg) {
+        return true;
+    }
+    return false;
+}
+
+BoundBox Scene::buildBound(BoundBox box, Triangle t1, Triangle t2, int index, bool useNear) {
+    BoundBox new_box = box;
+    if (useNear) {
+        float t1_max = fmax(fmax(t1.pointA.pos[index], t1.pointB.pos[index]), t1.pointC.pos[index]);
+        float t2_max = fmax(fmax(t2.pointA.pos[index], t2.pointB.pos[index]), t2.pointC.pos[index]);
+        float max = fmax(t1_max, t2_max);
+        new_box.maxCorner[index] = max;
+    }
+    else {
+        float t1_min = fmin(fmin(t1.pointA.pos[index], t1.pointB.pos[index]), t1.pointC.pos[index]);
+        float t2_min = fmin(fmin(t2.pointA.pos[index], t2.pointB.pos[index]), t2.pointC.pos[index]);
+        float min = fmax(t1_min, t2_min);
+        new_box.minCorner[index] = min;
+    }
+    return new_box;
+}
+
+void Scene::createNode(int node_idx, int tri_idx, BoundBox bound, KDSPLIT split) {
+    vec_kdnode[node_idx].bound = bound;
+    vec_kdnode[node_idx].trisIndex = tri_idx;
+    vec_kdnode[node_idx].near_node = -1;
+    vec_kdnode[node_idx].far_node = -1;
+    vec_kdnode[node_idx].split = split;
+}
+
+void Scene::pushdown(Triangle* tri_arr, int parent, BoundBox bound, int tri_idx) {
+
+
+    KDNode& node = vec_kdnode[parent];
+    KDSPLIT parent_split = node.split;
+    int parent_tri_idx = vec_kdnode[parent].trisIndex;
+
+    Triangle& parent_tri = tri_arr[parent_tri_idx];
+    Triangle& new_tri = tri_arr[tri_idx];
+    //std::cout << tri_arr[tri_idx].pointA.pos[0] << std::endl;
+
+    //Comparing the two triangles, deciding which subtree to go down
+    bool useNear;
+    if (parent_split == X) {
+        useNear = triCompare(new_tri, parent_tri, 0);
+    } 
+    else if (parent_split == Y) {
+        useNear = triCompare(new_tri, parent_tri, 1);
+    }
+    else {
+        useNear = triCompare(new_tri, parent_tri, 2);
+    }
+
+    //Actually pushing down the correct subtree, if it exists
+    if (useNear) {
+        if (node.near_node >= 0) {
+            pushdown(tri_arr, node.near_node, node.bound, tri_idx);
+            return;
+        }
+    }
+    else {
+        if (node.far_node >= 0) {
+            pushdown(tri_arr, node.far_node, node.bound, tri_idx);
+            return;
+        }
+    }
+
+    //If we are here then we need to create a new node
+    //This determines the new split X-->Y-->Z-->-->X etc.
+    //This is also used to determine how new bounding boxes are constructed/partitioned
+    KDSPLIT child_split;
+    BoundBox new_bound = bound;
+    if (parent_split == X) {
+        child_split = Y;
+        bound = buildBound(bound, new_tri, parent_tri, 0, useNear);
+    }
+    else if (parent_split == Y) {
+        child_split = Z;
+        bound = buildBound(bound, new_tri, parent_tri, 1, useNear);
+    }
+    else {
+        child_split = X;
+        bound = buildBound(bound, new_tri, parent_tri, 2, useNear);
+    }
+
+    //New Node pushed to vec
+    int node_idx = vec_kdnode.size();
+    vec_kdnode.push_back(KDNode());
+    createNode(node_idx, tri_idx, new_bound, child_split);
+    if (useNear) {
+        vec_kdnode[parent].near_node = node_idx;
+    }
+    else {
+        vec_kdnode[parent].far_node = node_idx;
+    }
+}
+
+void Scene::constructKDTrees() {
+    for (int i = 0; i < kdtree_indices.size(); i++) {
+        int idx = kdtree_indices[i];
+
+        Geom* ref = &geoms[idx];
+        
+        ref->root = vec_kdnode.size();
+        vec_kdnode.push_back(KDNode());
+        Triangle* tri_arr = ref->host_tris;
+        if (ref->numTris >= 1) {
+            createNode(ref->root, 0, ref->bound, X);
+        }
+
+        for (int j = 1; j < ref->numTris; j++) {
+            pushdown(tri_arr, ref->root, ref->bound, j);
+        }
+    }
 }

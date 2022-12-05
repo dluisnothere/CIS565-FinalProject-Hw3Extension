@@ -30,6 +30,12 @@ enum SARMode {
     STRIPMAP
 };
 
+enum KDSPLIT {
+    X,
+    Y,
+    Z
+};
+
 struct BoundBox {
     glm::vec3 minCorner;
     glm::vec3 maxCorner;
@@ -59,6 +65,15 @@ struct Triangle {
     Vertex pointC;
 };
 
+struct KDNode {
+    KDSPLIT split;
+    int near_node;
+    int far_node;
+    //Refers to the triangle buffer 
+    int trisIndex; 
+    BoundBox bound; //should be max and min values of geom and subtrees. They are computed after tree is constructed
+};
+
 struct Geom {
     enum GeomType type;
     int materialid;
@@ -72,6 +87,7 @@ struct Geom {
     Triangle* host_tris;
     Triangle* device_tris;
     BoundBox bound;
+    int root;
     int numTris = 0;
 
 #if LOAD_OBJ
