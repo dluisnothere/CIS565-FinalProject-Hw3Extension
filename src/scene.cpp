@@ -1132,7 +1132,6 @@ int Scene::loadCamera() {
 
         utilityCore::safeGetline(fp_in, line);
     }
-
     //calculate fov based on resolution
     float yscaled = tan(fovy * (PI / 180));
     float xscaled = (yscaled * camera.resolution.x) / camera.resolution.y;
@@ -1149,6 +1148,7 @@ int Scene::loadCamera() {
     int arraylen = camera.resolution.x * camera.resolution.y;
     state.image.resize(arraylen);
     std::fill(state.image.begin(), state.image.end(), glm::vec3());
+
 
     cout << "Loaded camera!" << endl;
     return 1;

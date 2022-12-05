@@ -213,14 +213,14 @@ void scatterRay(
             newDirection
         };
 
-        PathSegment newPath = {
+        /*PathSegment newPath = {
             newRay,
             m.specular.color * pointColor * pathSegment.color * m.hasReflective,
             pathSegment.pixelIndex,
             pathSegment.remainingBounces
-        };
+        };*/
 
-        pathSegment = newPath;
+        /*pathSegment = newPath;*/
     }
     else if (randGen <= m.hasReflective + m.hasRefractive) {
         // take a refractive ray
@@ -256,14 +256,14 @@ void scatterRay(
             newDirection
         };
 
-        PathSegment newPath = {
+        /*PathSegment newPath = {
             newRay,
             newColor,
             pathSegment.pixelIndex,
             pathSegment.remainingBounces
         };
 
-        pathSegment = newPath;
+        pathSegment = newPath;*/
     }
     else {
         // only diffuse
@@ -273,14 +273,14 @@ void scatterRay(
             newDirection
         };
 
-        PathSegment newPath = {
+        /*PathSegment newPath = {
             newRay,
             pointColor * pathSegment.color,
             pathSegment.pixelIndex,
             pathSegment.remainingBounces
         };
 
-        pathSegment = newPath;
+        pathSegment = newPath;*/
     }
 }
 

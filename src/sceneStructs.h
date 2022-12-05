@@ -156,8 +156,8 @@ struct Camera {
     glm::vec2 fov;
     glm::vec2 pixelLength;
 
-    float maxRange;
-    float minRange;
+    glm::mat4 inverseTransform;
+    glm::mat4 transform;
 };
 
 struct RenderState {
@@ -196,10 +196,17 @@ struct Trajectory {
 struct PathSegment {
     Ray ray;
     glm::vec3 color;
+    glm::vec3 color2;
+    glm::vec3 color3;
+    glm::vec3 outColor;
+    glm::vec3 negPriRay;
     int pixelIndex;
     int remainingBounces;
     float length;
+    int depth;
+    glm::vec2 ae1;
     int pixelIndexX;
+    glm::vec2 ae2;
     int pixelIndexY;
 };
 
