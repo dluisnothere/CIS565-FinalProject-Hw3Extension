@@ -8,7 +8,7 @@ CIS565 Final Project - Hardware Accelerated SAR Simulator
 
 ## Introduction and Motivation
 
-In 3D rendering, Pathtracing is a technique that generates realistic looking scenes/images by simulating light ray bounces. To that effect, SAR simulation works very similarly. Both processes cast rays from a starting point: In path tracing, the pinhole camera; In SAR simulation, the antenna which emits waves. This means operations to make an SAR simulator are embarrassingly parallel and can be optimized by the GPU. Our team lends our knowledge of GPU-based raytracing to better understand its applications outside of visible light-based image outputs. 
+In 3D rendering, Pathtracing is a technique that generates realistic looking scenes/images by simulating light ray bounces. To that effect, SAR simulation works very similarly. Both processes cast rays from a starting point: In path tracing, the pinhole camera; In SAR simulation, the antenna which emits waves. This means operations to make an SAR simulator are "embarrassingly parallel" and can be optimized by the GPU. Our team lends our knowledge of GPU-based raytracing to better understand its applications outside of visible light-based image outputs. To that effect, we are not Radar experts and our research may not be entirely physically accurate.
 
 Our hope is that this can contribute to the development of more open-source SAR simulators that can be helpful for aircraft/vehicle designers. We also hope that these outputs can be used as easy data-gathering for any AI-based image-recognition for the typically blurry images produced by real SARs.
 
@@ -21,7 +21,10 @@ _GLTF CREDITS GO HERE_
 SAR (Synthetic Aperture Radar) is a type of Radar that is commonly used in military Aircrafts for its advantage in creating images that does not depend on lighting or weather. SARs emit radar waves and capture signals that are bounced back in order to construct an image. 
 
 **Real World SARs**
-Traditional radars are stationary, which means , the quality of the resulting image heavily depends on the length of the antenna and the wavelength. 
+
+Traditional radars are stationary, and they rely on the large wavelength of the radio waves emitted to penetrate harsh weather conditions and generate clear images. However, the disadvantage here is that longer wavelengths require a longer antenna to emit. It also takes a long time to reflect back to the antenna. With moving aircrafts, both of these conditions are not ideal. 
+
+In order to bypass this issue, a smaller antenna is mounted onto a moving vehicle, and the vehicle takes various snapshots of the environment over a moving trajectory. This creates the illusion of a larger radar aperture, producing a "Synthetic Aperture" radar. the quality of the resulting image heavily depends on the length of the antenna and the wavelength of the radio signal. 
 
 **SAR Simulation Research**
 
@@ -34,9 +37,11 @@ The scene files used in this project are laid out as blocks of text in this orde
 ## Core Features
 
 ### SAR Wave Simulation
+
 We use the lambertian and specular reflection models to simulate the behavior of radar signal. We give the user the flexibility to adapt the lambertian and specular reflection property of the material to simulate the interaction of EM wave with different materials. 
 
 ### SAR Backscatter
+
 Backscatter are radar signals that reflected back to the SAR sensor. signals can be directly backscatter to the sensor or have multiple bounces before reaching the SAR sensor. The amplitude and the range of the signal are recorded by the sensor in a 3D coordinate of azimuth(moving direction of the antenna), elevation(position of hitted object on the elevation plane) and range(the distance between antenna and the object hitted).
 
 ### Vehicle Movement
