@@ -16,11 +16,13 @@ _BEST FINAL RENDER/IMAGE GALLERY GOES HERE_
 
 _GLTF CREDITS GO HERE_
 
-## Background: Synthetic Aperture Radar
+## Crash Course: Synthetic Aperture Radar
 
 SAR (Synthetic Aperture Radar) is a type of Radar that is useful for creating images that does not depend on lighting or weather. SARs emit radar waves and capture signals that are bounced back in order to construct an image. 
 
 **Real World SARs**
+
+SAR (Synthetic Aperture Radar) is a type of Radar commonly used in military Aircrafts for its advantage in creating images that does not depend on lighting. Traditional radars are stationary, which means , the quality of the resulting image heavily depends on the length of the antenna and the wavelength. 
 
 **SAR Simulation Research**
 
@@ -31,8 +33,6 @@ Modeling the behavior of materials and SAR rays appears to be a non-trivial task
 The scene files used in this project are laid out as blocks of text in this order: Materials, Textures (if any), and Objects in the scene. Each Object has a description of its translation, scale, and rotation, as well as which material it's using, and if it's a basic shape (such as sphere or cube), then that is also specified. If not a basic shape, then it specifies a path to its obj. If the Object also has a texture, then it will refer to the Id of the texture. Using Ids to keep track of scene attributes prevent over-copying of shared data between Objects.
 
 ## Core Features
-
-SAR (Synthetic Aperture Radar) is a type of Radar commonly used in military Aircrafts for its advantage in creating images that does not depend on lighting or weather. SARs emit radar waves and capture signals that are bounced back in order to construct an image. 
 
 ### SAR Wave Simulation
 We use the lambertian and specular reflection models to simulate the behavior of radar signal. We give the user the flexibility to adapt the lambertian and specular reflection property of the material to simulate the interaction of EM wave with different materials. 
