@@ -261,7 +261,6 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
 
     for (int midx = 0; midx < model.meshes.size(); midx++)
     {
-        std::vector<Triangle> triangleArray = std::vector<Triangle>();
         auto& gltf_mesh = model.meshes[midx];
         std::cerr << "Processing glTF mesh: '" << gltf_mesh.name << "'\n";
         std::cerr << "\tNum mesh primitive groups: " << gltf_mesh.primitives.size() << std::endl;
@@ -274,6 +273,8 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                 std::cerr << "\tNon-triangle primitive: skipping\n";
                 continue;
             }
+
+            std::vector<Triangle> triangleArray = std::vector<Triangle>();
 
             std::vector<int> tmpIndices;
             // just try float3
@@ -345,6 +346,7 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                 const int byte_stride = attribAccessor.ByteStride(bufferView);
 
                 const size_t count = attribAccessor.count;
+
                 if (attribute.first == "POSITION")
                 {
                     //std::cout << "Encountered position" << count << std::endl;
@@ -532,8 +534,7 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
 
             }
 
-            std::cout << "triangles pushed" << std::endl;
-
+            std::cout << "triangles pushed: " << triangleArray.size() << std::endl;
             float xMin = FLT_MAX;
             float yMin = FLT_MAX;
             float zMin = FLT_MAX;
@@ -577,6 +578,7 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
             }
 
             gltfGeoms.push_back(newGeom);
+
         }
         
     }

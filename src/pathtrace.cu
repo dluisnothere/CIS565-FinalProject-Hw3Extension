@@ -297,10 +297,10 @@ void pathtraceFree() {
 
 	for (int i = 0; i < numGeoms; i++) {
 		if (tmp_geom_pointer[i].type == OBJ || tmp_geom_pointer[i].type == GLTF) {
-			int numTris = tmp_geom_pointer->numTris;
+			int numTris = tmp_geom_pointer[i].numTris;
 			Triangle* tmp_tri_pointer = new Triangle[numTris];
-			cudaMemcpy(tmp_tri_pointer, tmp_geom_pointer[i].device_tris, numTris * sizeof(Geom), cudaMemcpyDeviceToHost);
-			checkCUDAError("cudaMemcpy tmp_tri_pointer failed");
+			cudaMemcpy(tmp_tri_pointer, tmp_geom_pointer[i].device_tris, numTris * sizeof(Triangle), cudaMemcpyDeviceToHost);
+			checkCUDAError("303 cudaMemcpy tmp_tri_pointer failed");
 
 			for (int j = 0; j < numTris; j++) {
 				cudaFree(tmp_tri_pointer[j].pointA.dev_uvs);
