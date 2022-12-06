@@ -283,7 +283,7 @@ void pathtraceInit(Scene* scene) {
 	cudaEventCreate(&endEvent);
 #endif
 	size_t size;
-	cudaDeviceSetLimit(cudaLimitStackSize, 135200);
+	cudaDeviceSetLimit(cudaLimitStackSize, 35200);
 	cudaDeviceGetLimit(&size, cudaLimitStackSize);
 	printf("stack size in bytes %d \n", size);
 	checkCUDAError("pathtraceInit");
