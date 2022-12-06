@@ -516,7 +516,7 @@ __global__ void computeIntersections(
 				if (boxT != -1) {
 #if USE_KD
 
-					t = treeIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal,  tmp_uv, outside, kdtrees, geom.root);
+					/*t = treeIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal,  tmp_uv, outside, kdtrees, geom.root);
 					tmpHitObj = true;
 					if (t > 0.0f && t_min > t)
 					{
@@ -526,6 +526,25 @@ __global__ void computeIntersections(
 						normal = tmp_normal;
 						uv = tmp_uv;
 						hitObj = tmpHitObj;
+					}*/
+					for (int j = 0; j < geom.numTris; j++) {
+
+						t = triangleIntersectionTest(&geom, &geom.device_tris[kdtrees[j].trisIndex], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, outside);
+						tmpHitObj = true;
+
+						if (kdtrees[j].trisIndex != j) {
+							printf("BUG: %d %d\n", kdtrees[j].trisIndex, j);
+						}
+
+						if (t > 0.0f && t_min > t)
+						{
+							t_min = t;
+							hit_geom_index = i;
+							intersect_point = tmp_intersect;
+							normal = tmp_normal;
+							uv = tmp_uv;
+							hitObj = tmpHitObj;
+						}
 					}
 #else
 					for (int j = 0; j < geom.numTris; j++) {

@@ -386,6 +386,71 @@ __host__ __device__ float treeIntersectionTest(
 
     float t_min = FLT_MAX;
     
+    //if (node_idx == -1) {
+    //    printf("%d \n", node_idx);
+    //    return -1;
+    //}
+    //KDNode& node = trees[node_idx];
+    ////printf("%d \n", node_idx);
+    //float boxT = boundBoxNodeIntersectionTest(geom, r, tmp_intersect, tmp_normal, outside, node.bound);
+    //
+    //if (boxT != -1) {
+
+    //    float t = triangleIntersectionTest(geom, &geom->device_tris[node.trisIndex], r, tmp_intersect, tmp_normal, tmp_uv, outside);
+    //    tmpHitObj = true;
+    //    
+
+    //    if (t > 0.0f && t_min > t)
+    //    {
+    //        t_min = t;
+    //        intersectionPoint = tmp_intersect;
+    //        normal = tmp_normal;
+    //        uv = tmp_uv;
+    //        hitObj = tmpHitObj;
+    //        changedTmin = true;
+    //    }
+    //   
+
+    //    if (node.near_node >= 0) {
+    //        t = treeIntersectionTest(geom, r, tmp_intersect, tmp_normal, tmp_uv, outside, trees, node.near_node);
+    //        //return t_min;
+
+    //        if (t > 0.0f && t_min > t)
+    //        {
+    //            t_min = t;
+    //            intersectionPoint = tmp_intersect;
+    //            normal = tmp_normal;
+    //            uv = tmp_uv;
+    //            hitObj = tmpHitObj;
+    //            changedTmin = true;
+    //        }
+
+    //    }
+
+    //    if (node.far_node >= 0) {
+    //        t = treeIntersectionTest(geom, r, tmp_intersect, tmp_normal, tmp_uv, outside, trees, node.far_node);
+
+    //        if (t > 0.0f && t_min > t)
+    //        {
+    //            t_min = t;
+    //            intersectionPoint = tmp_intersect;
+    //            normal = tmp_normal;
+    //            uv = tmp_uv;
+    //            hitObj = tmpHitObj;
+    //            changedTmin = true;
+    //        }
+    //    }
+
+    //    if (changedTmin) {
+    //        return t_min;
+    //    }
+    //    return -1;
+    //    
+    //}
+    //else {
+    //    return -1;
+    //}
+
     if (node_idx == -1) {
         printf("%d \n", node_idx);
         return -1;
@@ -393,12 +458,12 @@ __host__ __device__ float treeIntersectionTest(
     KDNode& node = trees[node_idx];
     //printf("%d \n", node_idx);
     float boxT = boundBoxNodeIntersectionTest(geom, r, tmp_intersect, tmp_normal, outside, node.bound);
-    
+
     if (boxT != -1) {
 
         float t = triangleIntersectionTest(geom, &geom->device_tris[node.trisIndex], r, tmp_intersect, tmp_normal, tmp_uv, outside);
         tmpHitObj = true;
-        
+
 
         if (t > 0.0f && t_min > t)
         {
@@ -409,7 +474,7 @@ __host__ __device__ float treeIntersectionTest(
             hitObj = tmpHitObj;
             changedTmin = true;
         }
-       
+
 
         if (node.near_node >= 0) {
             t = treeIntersectionTest(geom, r, tmp_intersect, tmp_normal, tmp_uv, outside, trees, node.near_node);
@@ -445,7 +510,7 @@ __host__ __device__ float treeIntersectionTest(
             return t_min;
         }
         return -1;
-        
+
     }
     else {
         return -1;

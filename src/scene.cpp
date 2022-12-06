@@ -1437,6 +1437,10 @@ void Scene::constructKDTrees() {
 
         for (int j = 1; j < ref->numTris; j++) {
             pushdown(tri_arr, ref->root, ref->bound, j);
+            if (vec_kdnode[j].trisIndex != j) {
+                printf("BUG: %d %d\n", j, vec_kdnode[j].trisIndex);
+            }
         }
+
     }
 }
