@@ -20,6 +20,10 @@ _GLTF CREDITS GO HERE_
 
 SAR (Synthetic Aperture Radar) is a type of Radar that is useful for creating images that does not depend on lighting or weather. SARs emit radar waves and capture signals that are bounced back in order to construct an image. 
 
+**Real World SARs**
+
+**SAR Simulation Research**
+
 Modeling the behavior of materials and SAR rays appears to be a non-trivial task. Based on our research and readings, only diffuse surfaces and specular surfaces have mathematical models developed.
 
 ## Scene File Description
