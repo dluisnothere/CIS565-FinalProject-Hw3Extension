@@ -18,7 +18,7 @@ _GLTF CREDITS GO HERE_
 
 ## Background: Synthetic Aperture Radar
 
-SAR (Synthetic Aperture Radar) is a type of Radar commonly used in military Aircrafts for its advantage in creating images that does not depend on lighting or weather. SARs emit radar waves and capture signals that are bounced back in order to construct an image. 
+SAR (Synthetic Aperture Radar) is a type of Radar that is useful for creating images that does not depend on lighting or weather. SARs emit radar waves and capture signals that are bounced back in order to construct an image. 
 
 ## Scene File Description
 
@@ -27,14 +27,18 @@ The scene files used in this project are laid out as blocks of text in this orde
 ## Core Features
 
 **SAR Wave Simulation**
-We use the lambertian and specular reflection models to simulate the behavior of radar signal. We give the user the flexibility to adapt the lambertian and specular reflection property of the material to simulate the interaction of EM wave with different materials. 
 
 **SAR Backscatter**
-Backscatter are radar signals that reflected back to the SAR sensor. signals can be directly backscatter to the sensor or have multiple bounces before reaching the SAR sensor. The amplitude and the range of the signal are recorded by the sensor in a 3D coordinate of azimuth(moving direction of the antenna), elevation(position of hitted object on the elevation plane) and range(the distance between antenna and the object hitted).
 
 **Vehicle Movement**
 
+A key part of SAR simulation is the movement of the "vehicle" In the real world, the SAR is mounted on either an aircraft or a satilite. The SAR then bounces infared waves towards a target and "listens" for radar waves that have scattered back. From this, the SAR image can be constructed. 
+
+In an effort to model this behavior. We use the parthtracer camera as both an antenna and receiver. Radar waves modeled as rays are shot from the camera, and are accumulated if they bounce back towards the camera. There are different SAR modes that can be modeled. The one we chose to focus on is called spotlight. Spotlight SAR involves keeping the camera focused on the same point as the vehicle moves. 
+
 **Acceleration Structures**
+
+We are using a kd-tree as a bounding volume hierarchy. A kd-tree is a binary tree where each node is split along one axis-aligned hyperplane. The k in a kd tree represents the number of dimensions. So for our uses k is three. The root node is split along the x-axis. The next layer is split along Y, then Z and then back to X etc.
 
 **GLTF Support**
 
