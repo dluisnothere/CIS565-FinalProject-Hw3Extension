@@ -1337,7 +1337,7 @@ BoundBox Scene::buildBound(BoundBox box, Triangle t1, Triangle t2, int index, bo
     else {
         float t1_min = fmin(fmin(t1.pointA.pos[index], t1.pointB.pos[index]), t1.pointC.pos[index]);
         float t2_min = fmin(fmin(t2.pointA.pos[index], t2.pointB.pos[index]), t2.pointC.pos[index]);
-        float min = fmax(t1_min, t2_min);
+        float min = fmin(t1_min, t2_min);
         new_box.minCorner[index] = min;
     }
     return new_box;
@@ -1379,13 +1379,13 @@ void Scene::pushdown(Triangle* tri_arr, int parent, BoundBox bound, int tri_idx)
     //Actually pushing down the correct subtree, if it exists
     if (useNear) {
         if (node.near_node >= 0) {
-            pushdown(tri_arr, node.near_node, node.bound, tri_idx);
+            pushdown(tri_arr, node.near_node, vec_kdnode[node.near_node].bound, tri_idx);
             return;
         }
     }
     else {
         if (node.far_node >= 0) {
-            pushdown(tri_arr, node.far_node, node.bound, tri_idx);
+            pushdown(tri_arr, node.far_node, vec_kdnode[node.far_node].bound, tri_idx);
             return;
         }
     }
