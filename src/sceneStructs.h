@@ -9,7 +9,7 @@
 #define BACKGROUND_COLOR (glm::vec3(0.0f))
 
 #define LOAD_GLTF 1
-#define LOAD_OBJ 0
+#define LOAD_OBJ 1
 #define USE_BOUND_BOX 1
 #define USE_UV 1
 #define USE_PROCEDURAL_TEXTURE 0 // cannot be on at the same time as USE_UV
@@ -46,7 +46,7 @@ struct Vertex {
     std::vector<int> host_texCoords;
     std::vector<glm::vec2> host_uvs;
 
-    glm::vec4 tan = glm::vec4(-1.f, -1.f, -1.f, 0.f); // dummy vals;'
+    glm::vec4 tan = glm::vec4(0.f, 0.f, 0.f, 0.f); // dummy vals;'
 
     int* dev_texCoords;
     glm::vec2* dev_uvs;
@@ -215,9 +215,10 @@ struct PathSegment {
 // 2) BSDF evaluation: generate a new ray
 struct ShadeableIntersection {
     float t;
+    glm::vec4 tangent = glm::vec4(0, 0, 0, 0);
     glm::vec3 surfaceNormal;
     int materialId;
-    int textureId;
+    int textureId = -1;
     glm::vec2 uv;
     bool hasHitObj = false;
 };
