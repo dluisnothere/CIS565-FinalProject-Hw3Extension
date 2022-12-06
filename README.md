@@ -25,7 +25,7 @@ SAR (Synthetic Aperture Radar) is a type of Radar that is commonly used in milit
 
 Traditional radars are stationary, and they rely on the large wavelength of the radio waves emitted to penetrate harsh weather conditions and generate clear images. However, the disadvantage here is that longer wavelengths require a longer antenna to emit. It also takes a long time to reflect back to the antenna. With moving aircrafts, both of these conditions are not ideal. 
 
-In order to bypass this issue, a smaller antenna is mounted onto a moving vehicle, and the vehicle takes various snapshots of the environment over a moving trajectory. This creates the illusion of a larger radar aperture, producing a "Synthetic Aperture" radar. the quality of the resulting image heavily depends on the length of the antenna and the wavelength of the radio signal. 
+In order to bypass this issue, a smaller antenna is mounted onto a moving vehicle, and the vehicle takes various snapshots of the environment over a moving trajectory. This creates the illusion of a larger radar aperture, producing a "Synthetic Aperture" radar. 
 
 **SAR Simulation Research**
 
