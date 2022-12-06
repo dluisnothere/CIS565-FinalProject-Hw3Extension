@@ -18,11 +18,10 @@ _GLTF CREDITS GO HERE_
 
 ## Crash Course: Synthetic Aperture Radar
 
-SAR (Synthetic Aperture Radar) is a type of Radar that is useful for creating images that does not depend on lighting or weather. SARs emit radar waves and capture signals that are bounced back in order to construct an image. 
+SAR (Synthetic Aperture Radar) is a type of Radar that is commonly used in military Aircrafts for its advantage in creating images that does not depend on lighting or weather. SARs emit radar waves and capture signals that are bounced back in order to construct an image. 
 
 **Real World SARs**
-
-SAR (Synthetic Aperture Radar) is a type of Radar commonly used in military Aircrafts for its advantage in creating images that does not depend on lighting. Traditional radars are stationary, which means , the quality of the resulting image heavily depends on the length of the antenna and the wavelength. 
+Traditional radars are stationary, which means , the quality of the resulting image heavily depends on the length of the antenna and the wavelength. 
 
 **SAR Simulation Research**
 
