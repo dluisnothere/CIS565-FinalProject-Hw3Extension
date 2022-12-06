@@ -291,22 +291,11 @@ __host__ __device__ float triangleIntersectionTest(Geom* geom, Triangle* triangl
 #endif
 
 #if LOAD_GLTF
-    //if (geom->materialid != -1 && geom->materialOffset != -1) {
-        // debug
     float pax = triangle->pointA.dev_uvs[0].x;
     float pay = triangle->pointA.dev_uvs[0].y;
 
-    //printf("ua: %f, %f\n", pax, pay);
+    uv = glm::vec2((1 - u - v) * triangle->pointA.dev_uvs[0] + u * triangle->pointB.dev_uvs[0] + v * triangle->pointC.dev_uvs[0]);
 
-        //glm::vec2 debugAUv = triangle->pointA.dev_uvs[0];
-        //float debugAUvx = debugAUv.x;
-        //float debugAUvy = debugAUv.y;
-        //glm::vec2 debugBUv = triangle->pointB.dev_uvs[0];
-        //glm::vec2 debugCUv = triangle->pointC.dev_uvs[0];
-
-        uv = glm::vec2((1 - u - v) * triangle->pointA.dev_uvs[0] + u * triangle->pointB.dev_uvs[0] + v * triangle->pointC.dev_uvs[0]);
-        //printf("u: %f, v: %f \n", uv.x, uv.y);
-    //}
 #endif
 
     if (!outside) {
