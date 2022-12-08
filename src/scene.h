@@ -24,7 +24,7 @@ private:
     int loadCamera();
 public:
     Scene(string filename);
-    ~Scene();
+    //~Scene();
 
     std::vector<Geom> geoms;
     std::vector<Material> materials;

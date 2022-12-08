@@ -1,9 +1,11 @@
 #pragma once
 
+#include "main.h"
+
 extern GLuint pbo;
 
 std::string currentTimeString();
-bool init();
+bool init(OnLoadNewScene fpOnLoadNewScene);
 void mainLoop();
 
 bool MouseOverImGuiWindow();

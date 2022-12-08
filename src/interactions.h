@@ -164,16 +164,65 @@ glm::vec3 proceduralTexture(glm::vec3 pos, const Material& m) {
  * You may need to change the parameter list for your purposes!
  */
 #if USE_UV
+
+// helper function to output new direction
+__device__
+glm::vec3 calculatePbrMetallicRoughness(cudaTextureObject_t& metallicTexture,
+    glm::vec3 reflection,
+    glm::vec2 metallicUv,
+    PathSegment& pathSegment,
+    ShadeableIntersection& intersection,
+    thrust::default_random_engine& rng) 
+{
+    float mu = metallicUv.x;
+    float mv = metallicUv.y;
+
+    //printf("tangent: %f, %f, %f, %f \n", intersection.tangent.x, intersection.tangent.y, intersection.tangent.z, intersection.tangent.w);
+
+    float4 metallicRoughness = tex2D<float4>(metallicTexture, mu, mv);
+    float rough = metallicRoughness.y;
+    float metal = metallicRoughness.z;
+
+    glm::vec3 newDirection = glm::vec3();
+
+    thrust::uniform_real_distribution<float> u01(0, 1);
+    float x1 = u01(rng);
+    float x2 = u01(rng);
+
+    float theta = atan(rough * sqrt(x1) / sqrt(1 - x1));
+    float phi = 2 * PI * x2;
+
+    newDirection.x = cos(phi) * sin(theta);
+    newDirection.y = sin(phi) * sin(theta);
+    newDirection.z = cos(theta);
+
+    glm::mat3 worldToLocal2D;
+    worldToLocal2D[2] = intersection.surfaceNormal;
+    worldToLocal2D[1] = glm::vec3(intersection.tangent);
+    worldToLocal2D[0] = glm::cross(intersection.surfaceNormal, worldToLocal2D[1]) * intersection.tangent.w;
+
+    glm::vec3 r = glm::normalize(worldToLocal2D * reflection);
+
+    glm::mat3 sampleToLocal;
+    sampleToLocal[2] = r;
+    sampleToLocal[0] = glm::normalize(glm::vec3(0, r.z, -r.y));
+    sampleToLocal[1] = glm::cross(sampleToLocal[2], sampleToLocal[1]);
+
+    glm::mat3 localToWorld = glm::inverse(worldToLocal2D);
+    glm::mat3 sampleToWorld = localToWorld * sampleToLocal;
+
+    newDirection = glm::normalize(sampleToWorld * newDirection);
+    return newDirection;
+    
+}
+
 __device__
 void scatterRay(
         PathSegment & pathSegment,
-        glm::vec3 intersect,
-        glm::vec3 normal,
-        int texid,
-        glm::vec2 uv,
+        glm::vec3 intersectionPoint,
+        ShadeableIntersection& intersection,
         const Material &m,
-        // cudaArray_t &tex,
-        cudaTextureObject_t &texObject,
+        cudaTextureObject_t* texObjects,
         int numChannels,
         thrust::default_random_engine &rng) {
     // TODO: implement this.
@@ -191,13 +240,24 @@ void scatterRay(
 
     glm::vec3 pointColor;
 
-    if (texid >= 0) {
-        float u = uv[0];
-        float v = uv[1];
+    // If base color exists
+    if (m.pbrMetallicRoughness.baseColorOffset >= 0) {
+        int baseColorTexId = m.pbrMetallicRoughness.baseColorOffset + m.pbrMetallicRoughness.baseColorIdx;
+        // printf("baseColorOffset: %i, textureId: %i \n", m.pbrMetallicRoughness.baseColorOffset, intersection.textureId);
+        float u = intersection.uv[0];
+        float v = intersection.uv[1];
 
-        float4 finalcol = tex2D<float4>(texObject, u, v);
+        float4 finalcol = tex2D<float4>(texObjects[baseColorTexId], u, v);
 
         //printf("finalCol: %f, %f, %f \n", finalcol.x, finalcol.y, finalcol.z);
+        pointColor = glm::vec3(finalcol.x, finalcol.y, finalcol.z);
+
+    }
+    else if (intersection.textureId >= 0) {
+        float u = intersection.uv[0];
+        float v = intersection.uv[1];
+
+        float4 finalcol = tex2D<float4>(texObjects[intersection.textureId], u, v);
         pointColor = glm::vec3(finalcol.x, finalcol.y, finalcol.z);
 
     }
@@ -205,11 +265,34 @@ void scatterRay(
         pointColor = m.color;
     }
 
-    if (randGen <= m.hasReflective) {
-        // take a reflective ray
-        glm::vec3 newDirection = glm::reflect(pathSegment.ray.direction, normal);
+    // 0.5 is a placeholder
+    if (m.pbrMetallicRoughness.metallicRoughnessOffset >= 0) {
+        // do metallic calculations and whatnot. If oBJ or none of these, then just move on to the reflective crap.
+        glm::vec3 reflection = glm::reflect(pathSegment.ray.direction, intersection.surfaceNormal);
+
+        // just use intersection.uv for now and hope the textures align in the location.
+        int metallicRoughnessTexId = m.pbrMetallicRoughness.metallicRoughnessOffset + m.pbrMetallicRoughness.metallicRoughnessIdx;
+
+        glm::vec3 pbrDirection = calculatePbrMetallicRoughness(texObjects[metallicRoughnessTexId], reflection, intersection.uv, pathSegment, intersection, rng);
         Ray newRay = {
-            intersect,
+            intersectionPoint,
+            pbrDirection
+        };
+
+        PathSegment newPath = {
+            newRay,
+            pointColor * pathSegment.color
+        };
+        newPath.pixelIndex = pathSegment.pixelIndex;
+        newPath.remainingBounces = pathSegment.remainingBounces;
+
+        pathSegment = newPath;
+
+    } else if (randGen <= m.hasReflective) {
+        // take a reflective ray
+        glm::vec3 newDirection = glm::reflect(pathSegment.ray.direction, intersection.surfaceNormal);
+        Ray newRay = {
+            intersectionPoint,
             newDirection
         };
 
@@ -227,7 +310,7 @@ void scatterRay(
         float airIOR = 1.0f;
         float eta = airIOR / m.indexOfRefraction;
 
-        float cosTheta = glm::dot(-1.f * pathSegment.ray.direction, normal);
+        float cosTheta = glm::dot(-1.f * pathSegment.ray.direction, intersection.surfaceNormal);
 
         // then entering
         bool entering = cosTheta > 0;
@@ -243,16 +326,16 @@ void scatterRay(
 
         // if total internal reflection
         if (sinThetaT >= 1) {
-            newDirection = glm::normalize(glm::reflect(pathSegment.ray.direction, normal));
+            newDirection = glm::normalize(glm::reflect(pathSegment.ray.direction, intersection.surfaceNormal));
         }
         else {
-            newDirection = glm::normalize(glm::refract(pathSegment.ray.direction, normal, eta));
+            newDirection = glm::normalize(glm::refract(pathSegment.ray.direction, intersection.surfaceNormal, eta));
         }
 
         glm::vec3 newColor = pathSegment.color * pointColor * m.specular.color;
 
         Ray newRay = {
-            intersect + 0.001f * pathSegment.ray.direction,
+            intersectionPoint + 0.001f * pathSegment.ray.direction,
             newDirection
         };
 
@@ -267,9 +350,9 @@ void scatterRay(
     }
     else {
         // only diffuse
-        glm::vec3 newDirection = calculateRandomDirectionInHemisphere(normal, rng);
+        glm::vec3 newDirection = calculateRandomDirectionInHemisphere(intersection.surfaceNormal, rng);
         Ray newRay = {
-            intersect,
+            intersectionPoint,
             newDirection
         };
 

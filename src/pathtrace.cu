@@ -87,6 +87,7 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution,
 		color.z = glm::clamp((int)(pix.z / iter * 255.0), 0, 255);
 
 		// Each thread writes one pixel location in the texture (textel)
+
 		pbo[index].w = 0;
 		pbo[index].x = color.x;
 		pbo[index].y = color.y;
@@ -131,6 +132,7 @@ static cudaEvent_t endEvent = NULL;
 void InitDataContainer(GuiDataContainer* imGuiData)
 {
 	guiData = imGuiData;
+	//guiData->TracedDepth = 8;
 }
 
 // specialized function just to cudaMalloc textures
@@ -285,17 +287,21 @@ void pathtraceInit(Scene* scene) {
 
 void pathtraceFree() {
 	cudaFree(dev_image);  // no-op if dev_image is null
+	checkCUDAError("cudaFree dev_image failed");
 	cudaFree(dev_paths);
+	checkCUDAError("cudaFree dev_paths failed");
 
 	int numG = numGeoms;
 	Geom* tmp_geom_pointer = new Geom[numG];
 	cudaMemcpy(tmp_geom_pointer, dev_geoms, numG * sizeof(Geom), cudaMemcpyDeviceToHost);
+	checkCUDAError("cudaMemcpy tmp_geom_pointer failed");
+
 	for (int i = 0; i < numGeoms; i++) {
 		if (tmp_geom_pointer[i].type == OBJ || tmp_geom_pointer[i].type == GLTF) {
-			int numTris = tmp_geom_pointer->numTris;
+			int numTris = tmp_geom_pointer[i].numTris;
 			Triangle* tmp_tri_pointer = new Triangle[numTris];
-			cudaMemcpy(tmp_tri_pointer, tmp_geom_pointer[i].device_tris, numTris * sizeof(Geom), cudaMemcpyDeviceToHost);
-			checkCUDAError("cudaMemcpy tmp_tri_pointer failed");
+			cudaMemcpy(tmp_tri_pointer, tmp_geom_pointer[i].device_tris, numTris * sizeof(Triangle), cudaMemcpyDeviceToHost);
+			checkCUDAError("303 cudaMemcpy tmp_tri_pointer failed");
 
 			for (int j = 0; j < numTris; j++) {
 				cudaFree(tmp_tri_pointer[j].pointA.dev_uvs);
@@ -484,10 +490,12 @@ __global__ void computeIntersectionsSAR(
 		glm::vec2 uv = glm::vec2(-1, -1);
 		bool outside = true;
 		bool hitObj; // for use in procedural texturing
+		glm::vec4 tangent = glm::vec4(0, 0, 0, 0);
 
 		glm::vec3 tmp_intersect;
 		glm::vec3 tmp_normal;
 		glm::vec2 tmp_uv = glm::vec2(-1, -1);
+		glm::vec4 tmp_tangent = glm::vec4(0, 0, 0, 0);
 		bool tmpHitObj = false;
 
 		// naive parse through global geoms
@@ -518,7 +526,7 @@ __global__ void computeIntersectionsSAR(
 						Texture tex = texs[geom.textureid];
 						t = triangleIntersectionTest(&geom, &geom.device_tris[j], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, texObj, tex, outside);
 #else
-						t = triangleIntersectionTest(&geom, &geom.device_tris[j], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, outside);
+						t = triangleIntersectionTest(&geom, &geom.device_tris[j], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_tangent, outside);
 #endif
 						tmpHitObj = true;
 
@@ -530,6 +538,7 @@ __global__ void computeIntersectionsSAR(
 							normal = tmp_normal;
 							uv = tmp_uv;
 							hitObj = tmpHitObj;
+							tangent = tmp_tangent;
 						}
 					}
 				}
@@ -541,7 +550,7 @@ __global__ void computeIntersectionsSAR(
 				Texture tex = texs[geom.textureid];
 				t = triangleIntersectionTest(&geom, &geom.device_tris[0], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, texObj, tex, outside);
 #else
-				t = triangleIntersectionTest(&geom, &geom.device_tris[0], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, outside);
+				t = triangleIntersectionTest(&geom, &geom.device_tris[0], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_tangent, outside);
 #endif
 				tmpHitObj = true;
 			}
@@ -555,6 +564,7 @@ __global__ void computeIntersectionsSAR(
 				normal = tmp_normal;
 				uv = tmp_uv;
 				hitObj = tmpHitObj;
+				tangent = tmp_tangent;
 			}
 		}
 
@@ -574,6 +584,7 @@ __global__ void computeIntersectionsSAR(
 			else {
 				intersections[path_index].materialId = geoms[hit_geom_index].materialid;
 			}
+			intersections[path_index].tangent = tangent;
 #endif
 			intersections[path_index].surfaceNormal = normal;
 			intersections[path_index].uv = uv;
@@ -621,10 +632,12 @@ __global__ void computeIntersections(
 		glm::vec2 uv = glm::vec2(-1, -1);
 		bool outside = true;
 		bool hitObj; // for use in procedural texturing
+		glm::vec4 tangent = glm::vec4(0, 0, 0, 0);
 
 		glm::vec3 tmp_intersect;
 		glm::vec3 tmp_normal;
 		glm::vec2 tmp_uv = glm::vec2(-1, -1);
+		glm::vec4 tmp_tangent = glm::vec4(0, 0, 0, 0);
 		bool tmpHitObj = false;
 
 		// naive parse through global geoms
@@ -655,7 +668,7 @@ __global__ void computeIntersections(
 						Texture tex = texs[geom.textureid];
 						t = triangleIntersectionTest(&geom, &geom.device_tris[j], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, texObj, tex, outside);
 #else
-						t = triangleIntersectionTest(&geom, &geom.device_tris[j], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, outside);
+						t = triangleIntersectionTest(&geom, &geom.device_tris[j], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_tangent, outside);
 #endif
 						tmpHitObj = true;
 
@@ -667,6 +680,7 @@ __global__ void computeIntersections(
 							normal = tmp_normal;
 							uv = tmp_uv;
 							hitObj = tmpHitObj;
+							tangent = tmp_tangent;
 						}
 					}
 				}
@@ -678,7 +692,7 @@ __global__ void computeIntersections(
 				Texture tex = texs[geom.textureid];
 				t = triangleIntersectionTest(&geom, &geom.device_tris[0], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, texObj, tex, outside);
 #else
-				t = triangleIntersectionTest(&geom, &geom.device_tris[0], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, outside);
+				t = triangleIntersectionTest(&geom, &geom.device_tris[0], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_tangent, outside);
 #endif
 				tmpHitObj = true;
 			}
@@ -692,6 +706,7 @@ __global__ void computeIntersections(
 				normal = tmp_normal;
 				uv = tmp_uv;
 				hitObj = tmpHitObj;
+				tangent = tmp_tangent;
 			}
 		}
 
@@ -711,6 +726,8 @@ __global__ void computeIntersections(
 			else {
 				intersections[path_index].materialId = geoms[hit_geom_index].materialid;
 			}
+
+			intersections[path_index].tangent = tangent;
 #endif
 			intersections[path_index].surfaceNormal = normal;
 			intersections[path_index].uv = uv;
@@ -807,7 +824,6 @@ __global__ void kernComputeShade(
 	, PathSegment* pathSegments
 	, Material* materials
 #if USE_UV
-	// , cudaArray_t* textures
 	, cudaTextureObject_t* textureObjs
 	, int* numChannels
 #endif
@@ -847,20 +863,18 @@ __global__ void kernComputeShade(
 #endif
 #if LOAD_GLTF
 				// only care about the base texture for now
-				int texIndex = material.pbrMetallicRoughness.baseColorIdx;
-				int texOffset = material.pbrMetallicRoughness.baseColorOffset;
-				int texCoord = material.pbrMetallicRoughness.baseColorTexCoord; 
+				//int texIndex = material.pbrMetallicRoughness.baseColorIdx;
+				//int texOffset = material.pbrMetallicRoughness.baseColorOffset;
+				//int texCoord = material.pbrMetallicRoughness.baseColorTexCoord; 
 
-				int debugsum = texIndex + texOffset;
+				//int debugsum = texIndex + texOffset;
 
-				cudaTextureObject_t texObj = textureObjs[texIndex + texOffset];
+				//cudaTextureObject_t texObj = textureObjs[texIndex + texOffset];
 #endif
 				int channels = numChannels[intersection.textureId];
-#if LOAD_OBJ
-				scatterRay(pathSegments[idx], intersectionPoint, intersection.surfaceNormal, intersection.textureId, intersection.uv, material, /*texture,*/ texObj, channels, rng);
-#endif
-#if LOAD_GLTF
-				scatterRay(pathSegments[idx], intersectionPoint, intersection.surfaceNormal, texOffset, intersection.uv, material, /*texture,*/ texObj, channels, rng);
+
+#if LOAD_OBJ || LOAD_GLTF
+				scatterRay(pathSegments[idx], intersectionPoint, intersection, material, textureObjs, channels, rng);
 #endif
 #elif USE_PROCEDURAL_TEXTURE		
 				scatterRay(pathSegments[idx], intersectionPoint, intersection.surfaceNormal, material, rng, intersection.hasHitObj);
@@ -1511,6 +1525,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 		if (guiData != NULL)
 		{
 			guiData->TracedDepth = depth;
+			//guiData->TracedDepth = 8;
 		}
 	}
 
