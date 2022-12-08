@@ -317,3 +317,24 @@ __host__ __device__ float triangleIntersectionTest(Geom* geom, Triangle* triangl
 
 }
 #endif
+
+__host__ __device__ float squarePlaneIntersectionTest(Camera cam, Ray r, float& pixelIdxX, float& pixelIdxY) {
+    //transform the ray
+    Ray rInv;
+    rInv.origin = multiplyMV(cam.inverseTransform, glm::vec4(r.origin, 1));
+    rInv.direction = glm::mat3(cam.inverseTransform) * r.direction;
+    float denominator = glm::dot(glm::vec3(0, 0, -1), rInv.direction);
+    if (denominator == 0.f) {
+        return -1;
+    }
+    float t = glm::dot(glm::vec3(0, 0, -1), (glm::vec3(0.f, 0.f, 0.f) - rInv.origin)) / glm::dot(glm::vec3(0, 0, -1), rInv.direction);
+    //normal = glm::mat3(cam.transform) * glm::vec3(0, 0, -1);
+    glm::vec3 intersectionPoint = rInv.origin + rInv.direction * t;
+    if (t > 0 && intersectionPoint.x > -1.f && intersectionPoint.x <= 1.f && intersectionPoint.y > -1.f && intersectionPoint.y <= 1.f)
+    {
+        pixelIdxX = ((1.f - intersectionPoint.x) / 0.5) * cam.resolution.x; //when intersectionPoint.x = -1, pixelIdx = max
+        pixelIdxY = ((1.f - intersectionPoint.y) / 0.5) * cam.resolution.y;
+        return t;
+    }
+    return -1;
+}

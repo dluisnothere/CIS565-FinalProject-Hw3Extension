@@ -201,13 +201,16 @@ struct PathSegment {
     glm::vec3 outColor;
     glm::vec3 negPriRay;
     int pixelIndex;
+    int pixelIndex2;
     int remainingBounces;
-    float length;
+    float length1;
+    float length2;
     int depth;
     glm::vec2 ae1;
     int pixelIndexX;
-    glm::vec2 ae2;
+    int pixelIndexX2;
     int pixelIndexY;
+    int pixelIndexY2;
 };
 
 // Use with a corresponding PathSegment to do:

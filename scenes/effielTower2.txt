@@ -99,8 +99,16 @@ EYE         5 -5 5
 LOOKAT      0 0.5 0
 UP          0 1 0
 
-// texture obj
+// Floor
 OBJECT 0
+cube
+material 1
+TRANS       0 0 0
+ROTAT       0 0 0
+SCALE       100 .01 100
+
+// texture obj
+OBJECT 1
 ../gltfs/eiffel_tower/scene.gltf
 material 8
 TRANS		0 0 0
