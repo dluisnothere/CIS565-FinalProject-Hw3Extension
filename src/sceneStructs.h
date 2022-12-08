@@ -80,6 +80,12 @@ struct KDNode {
     //Refers to the triangle buffer 
     int trisIndex; 
     BoundBox bound; //should be max and min values of geom and subtrees. They are computed after tree is constructed
+
+    //For debugging only
+    int* device_trisIndices;
+    std::vector<int> tempBuffer;
+    int numIndices;
+    int depth;
 };
 
 struct Geom {

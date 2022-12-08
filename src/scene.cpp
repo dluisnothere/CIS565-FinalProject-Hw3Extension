@@ -7,6 +7,7 @@
 #include "stb_image.h"
 #include "stb_image_write.h"
 
+int MAXDEPTH = 0;
 #define TINYGLTF_IMPLEMENTATION
 //#define STB_IMAGE_IMPLEMENTATION
 //#define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -1343,7 +1344,7 @@ BoundBox Scene::buildBound(BoundBox box, Triangle t1, Triangle t2, int index, bo
     return new_box;
 }
 
-void Scene::createNode(int node_idx, int tri_idx, int parent_idx, BoundBox bound, KDSPLIT split, parentRelation rel) {
+void Scene::createNode(int node_idx, int tri_idx, int parent_idx, BoundBox bound, KDSPLIT split, parentRelation rel, int depth) {
     vec_kdnode[node_idx].bound = bound;
     vec_kdnode[node_idx].trisIndex = tri_idx;
     vec_kdnode[node_idx].near_node = -1;
@@ -1351,6 +1352,9 @@ void Scene::createNode(int node_idx, int tri_idx, int parent_idx, BoundBox bound
     vec_kdnode[node_idx].split = split;
     vec_kdnode[node_idx].parent_node = parent_idx;
     vec_kdnode[node_idx].relation = rel;
+
+    vec_kdnode[node_idx].depth = depth;
+    vec_kdnode[node_idx].tempBuffer.push_back(tri_idx); //KD_DEBUG
 }
 
 void Scene::pushdown(Triangle* tri_arr, int parent, BoundBox bound, int tri_idx) {
@@ -1359,6 +1363,11 @@ void Scene::pushdown(Triangle* tri_arr, int parent, BoundBox bound, int tri_idx)
     KDNode& node = vec_kdnode[parent];
     KDSPLIT parent_split = node.split;
     int parent_tri_idx = vec_kdnode[parent].trisIndex;
+
+    if (node.depth == MAXDEPTH) {
+        vec_kdnode[parent].tempBuffer.push_back(tri_idx); //KD_DEBUG
+        return;
+    }
 
     Triangle& parent_tri = tri_arr[parent_tri_idx];
     Triangle& new_tri = tri_arr[tri_idx];
@@ -1397,15 +1406,15 @@ void Scene::pushdown(Triangle* tri_arr, int parent, BoundBox bound, int tri_idx)
     BoundBox new_bound = bound;
     if (parent_split == X) {
         child_split = Y;
-        bound = buildBound(bound, new_tri, parent_tri, 0, useNear);
+        new_bound = buildBound(bound, new_tri, parent_tri, 0, useNear);
     }
     else if (parent_split == Y) {
         child_split = Z;
-        bound = buildBound(bound, new_tri, parent_tri, 1, useNear);
+        new_bound = buildBound(bound, new_tri, parent_tri, 1, useNear);
     }
     else {
         child_split = X;
-        bound = buildBound(bound, new_tri, parent_tri, 2, useNear);
+        new_bound = buildBound(bound, new_tri, parent_tri, 2, useNear);
     }
 
     //New Node pushed to vec
@@ -1413,11 +1422,11 @@ void Scene::pushdown(Triangle* tri_arr, int parent, BoundBox bound, int tri_idx)
     vec_kdnode.push_back(KDNode());
     
     if (useNear) {
-        createNode(node_idx, tri_idx, parent, new_bound, child_split, LEFT);
+        createNode(node_idx, tri_idx, parent, new_bound, child_split, LEFT, node.depth + 1);
         vec_kdnode[parent].near_node = node_idx;
     }
     else {
-        createNode(node_idx, tri_idx, parent, new_bound, child_split, RIGHT);
+        createNode(node_idx, tri_idx, parent, new_bound, child_split, RIGHT, node.depth + 1);
         vec_kdnode[parent].far_node = node_idx;
     }
 }
@@ -1432,15 +1441,18 @@ void Scene::constructKDTrees() {
         vec_kdnode.push_back(KDNode());
         Triangle* tri_arr = ref->host_tris;
         if (ref->numTris >= 1) {
-            createNode(ref->root, 0, -1, ref->bound, X, ROOT);
+            createNode(ref->root, 0, -1, ref->bound, X, ROOT, 0);
         }
 
         for (int j = 1; j < ref->numTris; j++) {
             pushdown(tri_arr, ref->root, ref->bound, j);
-            if (vec_kdnode[j].trisIndex != j) {
+            /*if (vec_kdnode[j].trisIndex != j) {
                 printf("BUG: %d %d\n", j, vec_kdnode[j].trisIndex);
-            }
+            }*/
         }
 
+    }
+    for (int i = 0; i < vec_kdnode.size(); i++) {
+        vec_kdnode[i].numIndices = vec_kdnode[i].tempBuffer.size();
     }
 }

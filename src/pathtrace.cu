@@ -118,6 +118,7 @@ static int* dev_textureChannels;
 static int numTextures;
 static int numGeoms; //cursed variables to cudaFree nested pointers;
 static int numMaterials;
+static int numNodes; //KD_DEBUG
 
 static Geom* dev_lights = NULL;
 
@@ -178,6 +179,8 @@ void pathtraceInit(Scene* scene) {
 	numGeoms = hst_scene->geoms.size();
 	numMaterials = hst_scene->materials.size();
 
+	numNodes = hst_scene->vec_kdnode.size();
+
 	const Camera& cam = hst_scene->state.camera;
 	const int pixelcount = cam.resolution.x * cam.resolution.y;
 
@@ -219,6 +222,13 @@ void pathtraceInit(Scene* scene) {
 			cudaMemcpy(scene->geoms[i].device_tris, scene->geoms[i].host_tris, scene->geoms[i].numTris * sizeof(Triangle), cudaMemcpyHostToDevice);
 			checkCUDAError("cudaMemcpy device_tris failed");
 		}
+	}
+
+	for (int i = 0; i < scene->vec_kdnode.size(); i++) {
+		cudaMalloc(&(scene->vec_kdnode[i].device_trisIndices), scene->vec_kdnode[i].tempBuffer.size() * sizeof(int));
+		checkCUDAError("cudaMalloc device_trisIndices failed");
+		cudaMemcpy(scene->vec_kdnode[i].device_trisIndices, scene->vec_kdnode[i].tempBuffer.data(), scene->vec_kdnode[i].tempBuffer.size() * sizeof(int), cudaMemcpyHostToDevice);
+		checkCUDAError("cudaMemcpy device_trisIndices failed");
 	}
 
 	cudaMalloc(&dev_geoms, scene->geoms.size() * sizeof(Geom));
@@ -317,6 +327,15 @@ void pathtraceFree() {
 		}
 	}
 
+	int numN = numNodes;
+	KDNode* tmp_node_pointer = new KDNode[numN];
+	cudaMemcpy(tmp_node_pointer, dev_kdtrees, numN * sizeof(KDNode), cudaMemcpyDeviceToHost);
+	for (int i = 0; i < numN; i++) {
+		cudaFree(tmp_node_pointer[i].device_trisIndices);
+		checkCUDAError("cudaFree device_trisIndices failed"); //KD_DEBUG
+
+	}
+
 #if USE_UV
 	for (int i = 0; i < host_textureObjs.size(); i++) {
 		cudaDestroyTextureObject(host_textureObjs[i]);
@@ -344,6 +363,7 @@ void pathtraceFree() {
 #endif
 
 	delete[] tmp_geom_pointer;
+	delete[] tmp_node_pointer; //KD_DEBUG
 
 	checkCUDAError("pathtraceFree");
 }
@@ -516,7 +536,7 @@ __global__ void computeIntersections(
 				if (boxT != -1) {
 #if USE_KD
 
-					/*t = treeIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal,  tmp_uv, outside, kdtrees, geom.root);
+					t = treeIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal,  tmp_uv, outside, kdtrees, geom.root);
 					tmpHitObj = true;
 					if (t > 0.0f && t_min > t)
 					{
@@ -526,8 +546,8 @@ __global__ void computeIntersections(
 						normal = tmp_normal;
 						uv = tmp_uv;
 						hitObj = tmpHitObj;
-					}*/
-					for (int j = 0; j < geom.numTris; j++) {
+					}
+					/*for (int j = 0; j < geom.numTris; j++) {
 
 						t = triangleIntersectionTest(&geom, &geom.device_tris[kdtrees[j].trisIndex], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, outside);
 						tmpHitObj = true;
@@ -538,6 +558,7 @@ __global__ void computeIntersections(
 
 						if (t > 0.0f && t_min > t)
 						{
+							printf("%f \n", t);
 							t_min = t;
 							hit_geom_index = i;
 							intersect_point = tmp_intersect;
@@ -545,7 +566,7 @@ __global__ void computeIntersections(
 							uv = tmp_uv;
 							hitObj = tmpHitObj;
 						}
-					}
+					}*/
 #else
 					for (int j = 0; j < geom.numTris; j++) {
 #if BUMP_MAP
