@@ -1,0 +1,11 @@
+Model Information:
+* title:	City Grid Block
+* source:	https://sketchfab.com/3d-models/city-grid-block-3488e40ceca846bb9023f894a749c398
+* author:	antoniojmonteiro (https://sketchfab.com/antoniojmonteiro)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "City Grid Block" (https://sketchfab.com/3d-models/city-grid-block-3488e40ceca846bb9023f894a749c398) by antoniojmonteiro (https://sketchfab.com/antoniojmonteiro) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
