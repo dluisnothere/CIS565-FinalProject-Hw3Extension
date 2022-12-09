@@ -7,7 +7,7 @@
 #include "stb_image.h"
 #include "stb_image_write.h"
 
-int MAXDEPTH = 0;
+int MAXDEPTH = 1;
 #define TINYGLTF_IMPLEMENTATION
 //#define STB_IMAGE_IMPLEMENTATION
 //#define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -1419,19 +1419,21 @@ void Scene::pushdown(Triangle* tri_arr, int parent, BoundBox bound, int tri_idx)
 
     //New Node pushed to vec
     int node_idx = vec_kdnode.size();
+    int currentDepth = node.depth;
     vec_kdnode.push_back(KDNode());
     
     if (useNear) {
-        createNode(node_idx, tri_idx, parent, new_bound, child_split, LEFT, node.depth + 1);
+        createNode(node_idx, tri_idx, parent, new_bound, child_split, LEFT, currentDepth + 1);
         vec_kdnode[parent].near_node = node_idx;
     }
     else {
-        createNode(node_idx, tri_idx, parent, new_bound, child_split, RIGHT, node.depth + 1);
+        createNode(node_idx, tri_idx, parent, new_bound, child_split, RIGHT, currentDepth + 1);
         vec_kdnode[parent].far_node = node_idx;
     }
 }
 
 void Scene::constructKDTrees() {
+    vec_kdnode.clear();
     for (int i = 0; i < kdtree_indices.size(); i++) {
         int idx = kdtree_indices[i];
 

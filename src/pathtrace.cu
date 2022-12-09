@@ -174,6 +174,7 @@ void createTexture(const Texture &t, int numChannels, int texIdx) {
 
 void pathtraceInit(Scene* scene) {
 	hst_scene = scene;
+	hst_scene->constructKDTrees();
 	numTextures = hst_scene->textures.size();
 
 	numGeoms = hst_scene->geoms.size();
@@ -293,7 +294,7 @@ void pathtraceInit(Scene* scene) {
 	cudaEventCreate(&endEvent);
 #endif
 	size_t size;
-	cudaDeviceSetLimit(cudaLimitStackSize, 35200);
+	cudaDeviceSetLimit(cudaLimitStackSize, 135200);
 	cudaDeviceGetLimit(&size, cudaLimitStackSize);
 	printf("stack size in bytes %d \n", size);
 	checkCUDAError("pathtraceInit");
@@ -536,7 +537,7 @@ __global__ void computeIntersections(
 				if (boxT != -1) {
 #if USE_KD
 
-					t = treeIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal,  tmp_uv, outside, kdtrees, geom.root);
+					t = treeIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal,  tmp_uv, outside, kdtrees, geom.root, path_index);
 					tmpHitObj = true;
 					if (t > 0.0f && t_min > t)
 					{
@@ -1141,6 +1142,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 			);
 		checkCUDAError("trace one bounce");
 #else
+		printf("INTERSECT---------------------------------------------\n");
 		computeIntersections << <numblocksPathSegmentTracing, blockSize1d >> > (
 			depth
 			, currNumPaths
