@@ -1115,7 +1115,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 		if (i == 2) {
 			continue;
 		}
-		//kernTransToAzimuthRange << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths, host_maxRange.length, host_minRange.length, cam.resolution.x, cam.resolution.y, i);
+		kernTransToAzimuthRange << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths, host_maxRange.length, host_minRange.length, cam.resolution.x, cam.resolution.y, i);
 	}
 
 	for (int i = 1; i <= traceDepth; ++i) {

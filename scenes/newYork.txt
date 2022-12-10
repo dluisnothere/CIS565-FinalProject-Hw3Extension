@@ -104,5 +104,5 @@ OBJECT 0
 ../gltfs/newYork/scene.gltf
 material 8
 TRANS		0 0 0
-ROTAT	      0 0 0
+ROTAT	      0 -180 0
 SCALE		1 1 1
