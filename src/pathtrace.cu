@@ -31,7 +31,7 @@
 #define DEPTH_OF_FIELD 0 // depth of field focus defined later
 #define DIRECT_LIGHTING 0
 #define PERF_ANALYSIS 0
-#define USE_KD 0
+#define USE_KD 1
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
