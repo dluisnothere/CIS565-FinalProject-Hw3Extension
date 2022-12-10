@@ -248,7 +248,6 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
 
         gltfMaterials.push_back(newMaterial);
 
-        //gltfMatIdx++;
     }
     //
     // Meshes
