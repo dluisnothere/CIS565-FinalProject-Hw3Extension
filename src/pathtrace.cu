@@ -1,6 +1,5 @@
 #include <cstdio>
 #include <cuda.h>
-#include <cmath>
 #include <thrust/execution_policy.h>
 #include <thrust/random.h>
 #include <thrust/remove.h>
@@ -389,7 +388,7 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-
+	
 	if (x < cam.resolution.x && y < cam.resolution.y) {
 		int index = x + (y * cam.resolution.x);
 		PathSegment& segment = pathSegments[index];
@@ -410,11 +409,14 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 		);
 #else
 #if ORTHOGRAPHIC
+		//when x = 0, y = 0, ray's origin is at [1, 0, 1]
 		segment.ray.origin = cam.position
 			- cam.right * cam.pixelLength.x * ((float)x - (float)cam.resolution.x * 0.5f)
 			- cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * 0.5f);
 
 		segment.ray.direction = cam.view;
+		//printf("camera lookAt: %f, %f, %f\n", cam.lookAt.x, cam.lookAt.y, cam.lookAt.z);
+		
 #else
 		segment.ray.origin = cam.position;
 		segment.ray.direction = glm::normalize(cam.view
@@ -457,13 +459,141 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 		segment.remainingBounces = traceDepth;
 		segment.length1 = 0.f;
 		segment.length2 = 0.f;
+		segment.length3 = 0.f;
 		segment.pixelIndexX = x;
 		segment.pixelIndexX2 = x;
 		segment.pixelIndexY = y;
 		segment.pixelIndexY2 = y;
+		segment.checkCameraBlock = true;
+		segment.fordebug = false;
 	}
 }
 
+__global__ void kernComputeBlockToCameraSAR(
+	int depth
+	, int num_paths
+	, PathSegment* pathSegments
+	, Geom* geoms
+	, int geoms_size
+	, ShadeableIntersection* intersections
+) {
+	int path_index = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (path_index < num_paths)
+	{
+		PathSegment pathSegment = pathSegments[path_index];
+		if (pathSegment.remainingBounces == 0) {
+			return;
+		}
+		if (!(pathSegment.checkCameraBlock)) {
+			return;
+		}
+
+		float t;
+		glm::vec3 intersect_point;
+		glm::vec3 normal;
+		float t_min = FLT_MAX;
+		int hit_geom_index = -1;
+		glm::vec2 uv = glm::vec2(-1, -1);
+		bool outside = true;
+		bool hitObj; // for use in procedural texturing
+		glm::vec4 tangent = glm::vec4(0, 0, 0, 0);
+
+		glm::vec3 tmp_intersect;
+		glm::vec3 tmp_normal;
+		glm::vec2 tmp_uv = glm::vec2(-1, -1);
+		glm::vec4 tmp_tangent = glm::vec4(0, 0, 0, 0);
+		bool tmpHitObj = false;
+
+		// naive parse through global geoms
+
+		// test intersection with big obj box and set a boolean for whether triangle should be checked based on this ray.
+
+		for (int i = 0; i < geoms_size; i++)
+		{
+			Geom& geom = geoms[i];
+
+			if (geom.type == CUBE)
+			{
+				t = boxIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
+				tmpHitObj = false;
+			}
+			else if (geom.type == SPHERE)
+			{
+				t = sphereIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
+				tmpHitObj = false;
+			}
+			else if (geom.type == OBJ || geom.type == GLTF) {
+				float boxT = boundBoxIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
+
+				if (boxT != -1) {
+					for (int j = 0; j < geom.numTris; j++) {
+#if BUMP_MAP
+						cudaTextureObject_t texObj = textureObjs[geom.textureid];
+						Texture tex = texs[geom.textureid];
+						t = triangleIntersectionTest(&geom, &geom.device_tris[j], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, texObj, tex, outside);
+#else
+						t = triangleIntersectionTest(&geom, &geom.device_tris[j], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_tangent, outside);
+#endif
+						tmpHitObj = true;
+
+						if (t > 0.0f && t_min > t)
+						{
+							t_min = t;
+							hit_geom_index = i;
+							intersect_point = tmp_intersect;
+							normal = tmp_normal;
+							uv = tmp_uv;
+							hitObj = tmpHitObj;
+							tangent = tmp_tangent;
+						}
+					}
+				}
+			}
+			else if (geom.type == TRIANGLE) {
+				// Only use the first triangle, since in Triangle mode, each geom only has 1 triangle
+#if BUMP_MAP
+				cudaTextureObject_t texObj = textureObjs[geom.textureid];
+				Texture tex = texs[geom.textureid];
+				t = triangleIntersectionTest(&geom, &geom.device_tris[0], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, texObj, tex, outside);
+#else
+				t = triangleIntersectionTest(&geom, &geom.device_tris[0], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_tangent, outside);
+#endif
+				tmpHitObj = true;
+			}
+			// Compute the minimum t from the intersection tests to determine what
+			// scene geometry object was hit first.
+			if (t > 0.0f && t_min > t)
+			{
+				t_min = t;
+				hit_geom_index = i;
+				intersect_point = tmp_intersect;
+				normal = tmp_normal;
+				uv = tmp_uv;
+				hitObj = tmpHitObj;
+				tangent = tmp_tangent;
+			}
+		}
+
+		if (hit_geom_index == -1)
+		{
+			//printf("kill this pixel!  %f", pathSegment.ray.direction.x, pathSegment.ray.direction.y, pathSegment.ray.direction.z);
+			// if there is nothing, then can hit camera
+		}
+		else
+		{
+			if (depth == 2) {
+				pathSegments[path_index].color2 = glm::vec3(0.f);
+				//printf("my pathSegment pixelIndex2: %d", pathSegment.pixelIndex2);
+				//printf("my remainingBounces: %d\nmy debug: %d\n", pathSegment.remainingBounces, pathSegment.fordebug);
+			}
+
+		}
+		//no matter what, bounce should minus 1
+		--(pathSegment.remainingBounces);
+		pathSegment.ray.direction = pathSegment.realRayDir;
+	}
+}
 
 __global__ void computeIntersectionsSAR(
 	int depth
@@ -763,12 +893,18 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
 			glm::vec3 resultColor = glm::vec3(iterationPath.color.r);
 			//glm::vec3 resultColor = iterationPath.color; //direct backscatter
 			//glm::vec3 resultColor = iterationPath.color2; //double bounce reflection
+			if (glm::isnan(resultColor.r)) {
+				resultColor = glm::vec3(0.f);
+			}
 			image[iterationPath.pixelIndex] += resultColor;
 		}
 		else if (depth == 2) {
 			//glm::vec3 resultColor = glm::vec3(iterationPath.color2.r + iterationPath.color.r);
 			//glm::vec3 resultColor = iterationPath.color; //direct backscatter
-			glm::vec3 resultColor = iterationPath.color2; //double bounce reflection
+			glm::vec3 resultColor = glm::vec3(iterationPath.color2.r); //double bounce reflection
+			if (glm::isnan(resultColor.r)) {
+				resultColor = glm::vec3(0.f);
+			}
 			image[iterationPath.pixelIndex2] += resultColor;
 		}
 	}
@@ -936,20 +1072,19 @@ __global__ void kernComputeShadeSAR(
 			float Is = Fs * glm::pow(glm::dot(N, H), Fr);
 			float resultColor = Id + Is;
 			if (depth == 1) {
-				glm::vec3 V = glm::reflect(glm::normalize(pathSegments[idx].ray.direction), N);
-				pathSegments[idx].negPriRay = -pathSegments[idx].ray.direction;
+				glm::vec3 V = glm::reflect(-L , N);
+				pathSegments[idx].negPriRay = L;
 				pathSegments[idx].color = glm::vec3(resultColor);
 				//pathSegments[idx].color += glm::vec3(u01(rng) * 0.1f);   //noise
 				pathSegments[idx].length1 = intersection.t;
 				pathSegments[idx].depth = 1;
+				if (isnan(pathSegments[idx].color.r)) {
+					pathSegments[idx].color = glm::vec3(0.f);
+				}
 
 				//update ray
-				/*printf("origin: %f, %f, %f\n", pathSegments[idx].ray.origin.x, pathSegments[idx].ray.origin.y, pathSegments[idx].ray.origin.z);
-				printf("intersection.t: %f\n", intersection.t);
-				printf("direction: %f, %f, %f\n", pathSegments[idx].ray.direction.x, pathSegments[idx].ray.direction.y, pathSegments[idx].ray.direction.z);*/
 				pathSegments[idx].ray.origin = pathSegments[idx].ray.origin + intersection.t * glm::normalize(pathSegments[idx].ray.direction) + 0.001f * N;
 				pathSegments[idx].ray.direction = V;
-
 			}
 			else if (depth == 2) {
 				//test focusing ray with camera plane
@@ -958,18 +1093,32 @@ __global__ void kernComputeShadeSAR(
 				Ray focusing;
 				focusing.origin = focusingRayOri;
 				focusing.direction = focusingRayDir;
-				float pixelIdxX;
-				float pixelIdxY;
+				int pixelIdxX;
+				int pixelIdxY;
 				float t_cam = squarePlaneIntersectionTest(cam, focusing, pixelIdxX, pixelIdxY);
 
 				if (t_cam > 0.f) {
 					pathSegments[idx].color2 = glm::vec3(resultColor * pathSegments[idx].color.r);
+					if (isnan(pathSegments[idx].color2.r)) {
+						pathSegments[idx].color2 = glm::vec3(0.f);
+					}
 					//pathSegments[idx].color2 += glm::vec3(u01(rng) * 0.1f);    //noise
 					pathSegments[idx].length2 = (intersection.t + t_cam + pathSegments[idx].length1) / 2.f;
-					pathSegments[idx].pixelIndexX2 = glm::floor((pixelIdxX + pathSegments[idx].pixelIndexX) / 2);
-					pathSegments[idx].pixelIndexY2 = glm::floor((pixelIdxY + pathSegments[idx].pixelIndexY) / 2);
+					pathSegments[idx].pixelIndexX2 = (pixelIdxX + pathSegments[idx].pixelIndexX) / 2;
+					pathSegments[idx].pixelIndexY2 = (pixelIdxY + pathSegments[idx].pixelIndexY) / 2;
 					pathSegments[idx].depth = 2;
 					pathSegments[idx].pixelIndex2 = pathSegments[idx].pixelIndexX2 + (pathSegments[idx].pixelIndexY2 * cam.resolution.x);
+					
+					//update Ray
+					pathSegments[idx].ray.origin = focusingRayOri;
+					pathSegments[idx].ray.direction = focusingRayDir;
+					glm::vec3 V = glm::reflect(-L, N);
+					pathSegments[idx].realRayDir = V;
+					//回血bounce
+					++(pathSegments[idx].remainingBounces);
+				}
+				else {
+					pathSegments[idx].checkCameraBlock = false;
 				}
 			}
 		}
@@ -993,7 +1142,7 @@ struct compare_range {
 	__host__ __device__
 		bool operator()(PathSegment pathSegment1, PathSegment pathSegment2)
 	{
-		return pathSegment1.length1 < pathSegment2.length1;
+		return pathSegment1.length < pathSegment2.length;
 	}
 };
 
@@ -1030,6 +1179,7 @@ __global__ void kernTransToAzimuthRange(
 			pathSegment.pixelIndex = pathSegment.pixelIndexX + (y * camResolutionX);
 		}
 		else if (depth == 2) {
+			//range越大，越靠近bottom.
 			int y = (int)glm::floor(((pathSegment.length2 - minRange) / (maxRange - minRange)) * camResolutionY);
 			if (y < 0) {
 				y = 0;
@@ -1037,11 +1187,28 @@ __global__ void kernTransToAzimuthRange(
 			if (y >= camResolutionY) {
 				y = camResolutionY - 1;
 			}
-			pathSegment.pixelIndex2 = pathSegment.pixelIndexX + (y * camResolutionX);
+			pathSegment.pixelIndex2 = pathSegment.pixelIndexX2 + (y * camResolutionX);
 		}
 	}
 }
 
+__global__ void kernUpdateLength(int num_paths, PathSegment* paths) {
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	if (idx < num_paths) {
+		PathSegment& pathSegment = paths[idx];
+		if (pathSegment.length3 > 0.f) {
+			pathSegment.length = pathSegment.length3;
+		}
+		else {
+			if (pathSegment.length2 > 0.f) {
+				pathSegment.length = pathSegment.length2;
+			}
+			else {
+				pathSegment.length = pathSegment.length1;
+			}
+		}
+	}
+}
 
 __global__ void kernLetMeCheckRange(
 	PathSegment* pathSegments,
@@ -1049,9 +1216,8 @@ __global__ void kernLetMeCheckRange(
 ) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num_paths) {
-		//printf("threadIdx %f\n", pathSegments[idx].length);
-		if (pathSegments[idx].length1 == 0.f) {
-			printf("%f\n", pathSegments[idx].length1);
+		if (pathSegments[idx].pixelIndex2 == 361235) {
+			printf("I am 361235: %f, %f, %f\n", pathSegments[idx].color2.r, pathSegments[idx].color2.g, pathSegments[idx].color2.b);
 		}
 	}
 }
@@ -1344,7 +1510,22 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
  */
 void pathtrace(uchar4* pbo, int frame, int iter) {
 	const int traceDepth = hst_scene->state.traceDepth;
-	const Camera& cam = hst_scene->state.camera;
+	const Camera& cam = hst_scene->state.camera;/*
+	cudaMalloc(&dev_camera, sizeof(Camera));
+	cudaMemcpy(dev_camera, &(hst_scene->state.camera), sizeof(Scene), cudaMemcpyHostToDevice);*/
+	//so the problem is, eye is wrong, lookAt is correct, view is normalize(lookAt - eye), but since eye is wrong, view is wrong.
+	cout << "eye" << endl;
+	cout << hst_scene->state.camera.position.x << endl; //0
+	cout << hst_scene->state.camera.position.y << endl; //2.5
+	cout << hst_scene->state.camera.position.z << endl; //5
+	cout << "lookAt" << endl;
+	cout << hst_scene->state.camera.lookAt.x << endl;  //0
+	cout << hst_scene->state.camera.lookAt.y << endl;  //3
+	cout << hst_scene->state.camera.lookAt.z << endl;  //0
+	cout << "view" << endl;
+	cout << hst_scene->state.camera.view.x << endl;
+	cout << hst_scene->state.camera.view.y << endl;
+	cout << hst_scene->state.camera.view.z << endl;
 	const int pixelcount = cam.resolution.x * cam.resolution.y;
 
 	// 2D block for generating ray from camera
@@ -1404,6 +1585,8 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 	bool iterationComplete = false;
 
 	int currNumPaths = num_paths;
+
+	dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
 
 #if PERF_ANALYSIS
 	cudaEventRecord(beginEvent);
@@ -1484,6 +1667,16 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 			depth,
 			cam
 );
+		if (depth > 1) {
+			kernComputeBlockToCameraSAR << <numblocksPathSegmentTracing, blockSize1d >> > (
+				depth
+				, currNumPaths
+				, dev_paths
+				, dev_geoms
+				, hst_scene->geoms.size()
+				, dev_intersections
+				);
+		}
 		
 #else
 		kernComputeShade << <numblocksPathSegmentTracing, blockSize1d >> > (
@@ -1501,7 +1694,6 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 #endif
 		
 		cudaDeviceSynchronize();
-
 		// 4. remove_if sorts all contents such that useless paths are all at the end.
 		// if the remainingBounces = 0 (any material that doesn't hit anything or number of depth is at its limit)
 		dev_path_end = thrust::stable_partition(thrust::device, dev_paths, dev_paths + currNumPaths, invalid_intersection());
@@ -1530,47 +1722,29 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 	}
 
 
-	// Assemble this iteration and apply it to the image
-	dim3 numBlocksPixels = (pixelcount + blockSize1d - 1) / blockSize1d;
-
+	kernUpdateLength << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths);
 	//calculate maxRange and minRange to form image in azimuth-range plane
 	PathSegment* longestSeg = thrust::max_element(thrust::device, dev_paths, dev_paths + num_paths, compare_range());
-
-	/*PathSegment* dev_path_endShortestSeg = thrust::stable_partition(thrust::device, dev_paths, dev_paths + currNumPaths, length_zero());
-
-	currNumPaths = dev_path_endShortestSeg - dev_paths;
-	PathSegment* secondShortestSeg = thrust::min_element(thrust::device, dev_paths, dev_paths + currNumPaths, compare_range());*/
-
+	PathSegment* shortestSeg = thrust::min_element(thrust::device, dev_paths, dev_paths + num_paths, compare_range());
 	PathSegment host_maxRange;
 	PathSegment host_minRange;
 	cudaMemcpy(&host_maxRange, longestSeg, sizeof(PathSegment), cudaMemcpyDeviceToHost);
+	cudaMemcpy(&host_minRange, shortestSeg, sizeof(PathSegment), cudaMemcpyDeviceToHost);
 	
-	//printf("maxRange: %f \n", host_maxRange.length);
-
-	// make float and store it in device memory and then predicate can just access it directly.
-	/*cudaMalloc(&dev_maxRange, sizeof(float));
-	cudaMemset(&dev_maxRange, host_maxRange.length, sizeof(float));*/
-
-	PathSegment* dev_path_endShortestSeg = thrust::stable_partition(thrust::device, dev_paths, dev_paths + num_paths, length_zero());
-	
-	currNumPaths = dev_path_endShortestSeg - dev_paths;
-	PathSegment* secondShortestSeg = thrust::min_element(thrust::device, dev_paths, dev_paths + currNumPaths, compare_range());
-	
-	//cudaMemcpy(&host_minRange, shortestSeg, sizeof(PathSegment), cudaMemcpyDeviceToHost);
-	cudaMemcpy(&host_minRange, secondShortestSeg, sizeof(PathSegment), cudaMemcpyDeviceToHost);
-	//printf("minRange: %f \n", host_minRange.length);
-	//printf("minRange: %f \n", host_minRange.pixelIndex);
-	//printf("minRange: %f \n", host_minRange.color.x);
-	
-	//kernLetMeCheckRange << <numBlocksPixels, blockSize1d >> > (dev_paths, currNumPaths);
-	//printf("minRange: %f \n", host_minRange.length);
-	//printf("maxRange: %f \n", host_maxRange.length);
+	printf("minRange: %f \n", host_minRange.length);
+	printf("maxRange: %f \n", host_maxRange.length);
 	
 	for (int i = 1; i <= traceDepth; ++i) {
-		kernTransToAzimuthRange << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths, 8.15f, 9.9f, cam.resolution.x, cam.resolution.y, i);
+		if (i == 2) {
+			continue;
+		}
+		kernTransToAzimuthRange << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths, host_maxRange.length, host_minRange.length, cam.resolution.x, cam.resolution.y, i);
 	}
 
 	for (int i = 1; i <= traceDepth; ++i) {
+		if (i == 2) {
+			continue;
+		}
 		finalGather << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_paths, i, cam);
 	}
 

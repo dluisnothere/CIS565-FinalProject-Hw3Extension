@@ -203,14 +203,21 @@ struct PathSegment {
     int pixelIndex;
     int pixelIndex2;
     int remainingBounces;
+    float length;
     float length1;
     float length2;
+    float length3;
     int depth;
     glm::vec2 ae1;
     int pixelIndexX;
     int pixelIndexX2;
     int pixelIndexY;
     int pixelIndexY2;
+    
+    glm::vec3 realRayDir;
+    bool checkCameraBlock;
+    
+    bool fordebug;
 };
 
 // Use with a corresponding PathSegment to do:
