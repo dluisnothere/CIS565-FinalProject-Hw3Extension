@@ -605,14 +605,6 @@ __global__ void computeIntersectionsSAR(
 					}
 				}
 			}
-			//else if (geom.type == TRIANGLE) {
-			//	// Only use the first triangle, since in Triangle mode, each geom only has 1 triangle
-
-			//	t = triangleIntersectionTest(&geom, &geom.device_tris[0], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_tangent, outside);
-			//	tmpHitObj = true;
-			//}
-			// Compute the minimum t from the intersection tests to determine what
-			// scene geometry object was hit first.
 			if (t > 0.0f && t_min > t)
 			{
 				t_min = t;
@@ -654,7 +646,6 @@ __global__ void computeIntersectionsSAR(
 		}
 	}
 }
-
 
 // Add the current iteration's output to the overall image
 __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iterationPaths, int depth, Camera cam)

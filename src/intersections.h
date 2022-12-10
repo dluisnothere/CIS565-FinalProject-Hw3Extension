@@ -292,8 +292,14 @@ __host__ __device__ float triangleIntersectionTest(Geom* geom, Triangle* triangl
 
 #if LOAD_GLTF
     // just use normal uv values for now and not worry about the other texcoords
-    uv = glm::vec2((1 - u - v) * triangle->pointA.dev_uvs[0] + u * triangle->pointB.dev_uvs[0] + v * triangle->pointC.dev_uvs[0]);
-    tangent = glm::vec4((1 - u - v) * triangle->pointA.tan + u * triangle->pointB.tan + v * triangle->pointC.tan);
+    glm::vec2 pointUvs = triangle->pointA.dev_uvs[0];
+    if (pointUvs.x > -1) {
+        uv = glm::vec2((1 - u - v) * triangle->pointA.dev_uvs[0] + u * triangle->pointB.dev_uvs[0] + v * triangle->pointC.dev_uvs[0]);
+    }
+
+    if (tangent.length() > 0) {
+        tangent = glm::vec4((1 - u - v) * triangle->pointA.tan + u * triangle->pointB.tan + v * triangle->pointC.tan);
+    }
 #endif
 
     if (!outside) {

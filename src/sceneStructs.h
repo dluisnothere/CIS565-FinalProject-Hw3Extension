@@ -228,6 +228,6 @@ struct ShadeableIntersection {
     glm::vec3 surfaceNormal;
     int materialId;
     int textureId = -1;
-    glm::vec2 uv;
+    glm::vec2 uv = glm::vec2(-1.f, -1.f); // set to -1 -1 by default
     bool hasHitObj = false;
 };
