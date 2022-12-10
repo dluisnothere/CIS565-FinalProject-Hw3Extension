@@ -31,7 +31,7 @@
 #define DEPTH_OF_FIELD 0 // depth of field focus defined later
 #define DIRECT_LIGHTING 0
 #define PERF_ANALYSIS 0
-#define USE_KD 1
+#define USE_KD 0
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -173,6 +173,7 @@ void createTexture(const Texture &t, int numChannels, int texIdx) {
 }
 
 void pathtraceInit(Scene* scene) {
+	printf("Beginning Memory Alloc");
 	hst_scene = scene;
 	//hst_scene->constructKDTrees();
 	numTextures = hst_scene->textures.size();
@@ -248,6 +249,7 @@ void pathtraceInit(Scene* scene) {
 	cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
 	checkCUDAError("cudaMemcpy dev_intersections failed");
 
+	printf("Allocating Kd Nodes\n");
 	cudaMalloc(&dev_kdtrees, scene->vec_kdnode.size() * sizeof(KDNode));
 	checkCUDAError("cudaMalloc dev_kdtrees failed");
 	cudaMemcpy(dev_kdtrees, scene->vec_kdnode.data(), scene->vec_kdnode.size() * sizeof(KDNode), cudaMemcpyHostToDevice);

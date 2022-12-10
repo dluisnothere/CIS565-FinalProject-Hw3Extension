@@ -1547,6 +1547,7 @@ void Scene::constructKDTrees() {
         glm::vec3 minCorn;
         glm::vec3 maxCorn;
         buildBounds(tri_arr, ref->root, minCorn, maxCorn);
+        printf("Root %d established\n", ref->root);
     }
 #if USE_KD_VEC
     for (int i = 0; i < vec_kdnode.size(); i++) {
