@@ -174,7 +174,7 @@ void createTexture(const Texture &t, int numChannels, int texIdx) {
 
 void pathtraceInit(Scene* scene) {
 	hst_scene = scene;
-	hst_scene->constructKDTrees();
+	//hst_scene->constructKDTrees();
 	numTextures = hst_scene->textures.size();
 
 	numGeoms = hst_scene->geoms.size();
@@ -224,13 +224,14 @@ void pathtraceInit(Scene* scene) {
 			checkCUDAError("cudaMemcpy device_tris failed");
 		}
 	}
-
+#if USE_KD_VEC
 	for (int i = 0; i < scene->vec_kdnode.size(); i++) {
 		cudaMalloc(&(scene->vec_kdnode[i].device_trisIndices), scene->vec_kdnode[i].tempBuffer.size() * sizeof(int));
 		checkCUDAError("cudaMalloc device_trisIndices failed");
 		cudaMemcpy(scene->vec_kdnode[i].device_trisIndices, scene->vec_kdnode[i].tempBuffer.data(), scene->vec_kdnode[i].tempBuffer.size() * sizeof(int), cudaMemcpyHostToDevice);
 		checkCUDAError("cudaMemcpy device_trisIndices failed");
 	}
+#endif
 
 	cudaMalloc(&dev_geoms, scene->geoms.size() * sizeof(Geom));
 	checkCUDAError("cudaMalloc dev_geoms failed");
@@ -294,7 +295,7 @@ void pathtraceInit(Scene* scene) {
 	cudaEventCreate(&endEvent);
 #endif
 	size_t size;
-	cudaDeviceSetLimit(cudaLimitStackSize, 135200);
+	cudaDeviceSetLimit(cudaLimitStackSize, 5128);
 	cudaDeviceGetLimit(&size, cudaLimitStackSize);
 	printf("stack size in bytes %d \n", size);
 	checkCUDAError("pathtraceInit");
@@ -327,7 +328,7 @@ void pathtraceFree() {
 			checkCUDAError("cudaFree device_tris failed");
 		}
 	}
-
+#if USE_KD_VEC
 	int numN = numNodes;
 	KDNode* tmp_node_pointer = new KDNode[numN];
 	cudaMemcpy(tmp_node_pointer, dev_kdtrees, numN * sizeof(KDNode), cudaMemcpyDeviceToHost);
@@ -336,6 +337,8 @@ void pathtraceFree() {
 		checkCUDAError("cudaFree device_trisIndices failed"); //KD_DEBUG
 
 	}
+	delete[] tmp_node_pointer; //KD_DEBUG
+#endif
 
 #if USE_UV
 	for (int i = 0; i < host_textureObjs.size(); i++) {
@@ -364,7 +367,8 @@ void pathtraceFree() {
 #endif
 
 	delete[] tmp_geom_pointer;
-	delete[] tmp_node_pointer; //KD_DEBUG
+
+	
 
 	checkCUDAError("pathtraceFree");
 }

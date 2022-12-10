@@ -7,7 +7,7 @@
 #include "stb_image.h"
 #include "stb_image_write.h"
 
-int MAXDEPTH = 1;
+int MAXDEPTH = 2;
 #define TINYGLTF_IMPLEMENTATION
 //#define STB_IMAGE_IMPLEMENTATION
 //#define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -1304,18 +1304,31 @@ int Scene::loadTexture(string textureid) {
     return 1;
 }
 
+static int counterForTri = 0;
 bool Scene::triCompare(Triangle t1, Triangle t2, int index) {
     float t1_min = fmin(fmin(t1.pointA.pos[index], t1.pointB.pos[index]), t1.pointC.pos[index]);
     float t2_min = fmin(fmin(t2.pointA.pos[index], t2.pointB.pos[index]), t2.pointC.pos[index]);
 
     float t1_max = fmax(fmax(t1.pointA.pos[index], t1.pointB.pos[index]), t1.pointC.pos[index]);
     float t2_max = fmax(fmax(t2.pointA.pos[index], t2.pointB.pos[index]), t2.pointC.pos[index]);
+
+    //printf("min %f max %f count: %d\n", t2_min, t2_max, counterForTri);
+    //counterForTri++;
     if (t2_min > t1_min) {
         return true;
     }
-    if (t2_max < t2_max) {
+    if (t2_max <= t2_max) {
         return false;
     }
+
+    /*if (0 > t1_min) {
+        return true;
+    }
+    if (0 <= t2_max) {
+        return false;
+    }*/
+
+    
 
     //If neither are true then just take an avg
     float t1_avg = (t1.pointA.pos[index] + t1.pointB.pos[index] + t1.pointC.pos[index]) / 3.f;
@@ -1325,6 +1338,17 @@ bool Scene::triCompare(Triangle t1, Triangle t2, int index) {
         return true;
     }
     return false;
+}
+
+glm::vec3 Scene::triMin(Triangle t) {
+    return glm::vec3(fmin(t.pointA.pos.x, fmin(t.pointB.pos.x, t.pointC.pos.x)),
+                     fmin(t.pointA.pos.y, fmin(t.pointB.pos.y, t.pointC.pos.y)),
+                     fmin(t.pointA.pos.z, fmin(t.pointB.pos.z, t.pointC.pos.z)));
+}
+glm::vec3 Scene::triMax(Triangle t) {
+    return glm::vec3(fmax(t.pointA.pos.x, fmax(t.pointB.pos.x, t.pointC.pos.x)),
+                     fmax(t.pointA.pos.y, fmax(t.pointB.pos.y, t.pointC.pos.y)),
+                     fmax(t.pointA.pos.z, fmax(t.pointB.pos.z, t.pointC.pos.z)));
 }
 
 BoundBox Scene::buildBound(BoundBox box, Triangle t1, Triangle t2, int index, bool useNear) {
@@ -1344,6 +1368,68 @@ BoundBox Scene::buildBound(BoundBox box, Triangle t1, Triangle t2, int index, bo
     return new_box;
 }
 
+void Scene::buildBounds(Triangle* tri_arr, int parent, glm::vec3& min, glm::vec3& max) {
+    KDNode& node = vec_kdnode[parent];
+
+    glm::vec3 local_min = triMin(tri_arr[node.trisIndex]);
+    glm::vec3 local_max = triMax(tri_arr[node.trisIndex]);
+
+#if USE_KD_VEC
+    for (int i = 0; i < vec_kdnode[parent].tempBuffer.size(); i++) { //KD_DEBUG
+        glm::vec3 vec_min = triMin(tri_arr[vec_kdnode[parent].tempBuffer[i]]);
+        glm::vec3 vec_max = triMax(tri_arr[vec_kdnode[parent].tempBuffer[i]]);
+        local_min = glm::vec3(fmin(local_min.x, vec_min.x),
+            fmin(local_min.y, vec_min.y),
+            fmin(local_min.z, vec_min.z));
+        local_max = glm::vec3(fmax(local_max.x, vec_max.x),
+            fmax(local_max.y, vec_max.y),
+            fmax(local_max.z, vec_max.z));
+        //std::cout << local_min.x << " " << std::endl;
+        //std::cout << local_max.x << std::endl;
+    }
+#endif
+    //minCorner	{x=-0.0212809108 y=-4.77385511e-05 z=-0.0138090001 ...}	
+    //maxCorner{ x = 0.0212809108 y = 0.0628480613 z = 0.0138090011 ... }	
+            //printf("min-------------\n");
+        //printf("x %f y %f z %f\n", local_min.x, local_min.y, local_min.z);
+        //printf("x %f y %f z %f\n", child_min.x, child_min.y, child_min.z);
+        //printf("x %f y %f z %f\n", fmin(local_min.x, child_min.x), fmin(local_min.y, child_min.y), fmin(local_min.z, child_min.z));
+        //printf("max-------------\n");
+        //printf("x %f y %f z %f\n", local_max.x, local_max.y, local_max.z);
+        //printf("x %f y %f z %f\n", child_max.x, child_max.y, child_max.z);
+        //printf("x %f y %f z %f\n", fmax(local_max.x, child_max.x), fmax(local_max.y, child_max.y), fmax(local_max.z, child_max.z));
+    glm::vec3 child_min = local_min;
+    glm::vec3 child_max = local_max;
+
+    if (node.near_node != -1) {
+        buildBounds(tri_arr, node.near_node, child_min, child_max);
+        local_min = glm::vec3(fmin(local_min.x, child_min.x), 
+            fmin(local_min.y, child_min.y), 
+            fmin(local_min.z, child_min.z));
+        local_max = glm::vec3(fmax(local_max.x, child_max.x),
+            fmax(local_max.y, child_max.y),
+            fmax(local_max.z, child_max.z));
+    }
+    if (node.far_node != -1) {
+        buildBounds(tri_arr, node.far_node, child_min, child_max);
+
+        local_min = glm::vec3(fmin(local_min.x, child_min.x),
+            fmin(local_min.y, child_min.y),
+            fmin(local_min.z, child_min.z));
+        local_max = glm::vec3(fmax(local_max.x, child_max.x),
+            fmax(local_max.y, child_max.y),
+            fmax(local_max.z, child_max.z));
+    }
+
+    vec_kdnode[parent].bound.minCorner = local_min;
+    vec_kdnode[parent].bound.maxCorner = local_max;
+
+    //minCorner	{x=-0.0212809108 y=-4.77385511e-05 z=-0.0138090001 ...}	
+    //maxCorner{ x = 0.0212809108 y = 0.0628480613 z = 0.0138090011 ... }
+    min = local_min;
+    max = local_max;
+}
+
 void Scene::createNode(int node_idx, int tri_idx, int parent_idx, BoundBox bound, KDSPLIT split, parentRelation rel, int depth) {
     vec_kdnode[node_idx].bound = bound;
     vec_kdnode[node_idx].trisIndex = tri_idx;
@@ -1354,7 +1440,9 @@ void Scene::createNode(int node_idx, int tri_idx, int parent_idx, BoundBox bound
     vec_kdnode[node_idx].relation = rel;
 
     vec_kdnode[node_idx].depth = depth;
+#if USE_KD_VEC
     vec_kdnode[node_idx].tempBuffer.push_back(tri_idx); //KD_DEBUG
+#endif
 }
 
 void Scene::pushdown(Triangle* tri_arr, int parent, BoundBox bound, int tri_idx) {
@@ -1364,10 +1452,12 @@ void Scene::pushdown(Triangle* tri_arr, int parent, BoundBox bound, int tri_idx)
     KDSPLIT parent_split = node.split;
     int parent_tri_idx = vec_kdnode[parent].trisIndex;
 
+#if USE_KD_VEC
     if (node.depth == MAXDEPTH) {
         vec_kdnode[parent].tempBuffer.push_back(tri_idx); //KD_DEBUG
         return;
     }
+#endif
 
     Triangle& parent_tri = tri_arr[parent_tri_idx];
     Triangle& new_tri = tri_arr[tri_idx];
@@ -1417,6 +1507,8 @@ void Scene::pushdown(Triangle* tri_arr, int parent, BoundBox bound, int tri_idx)
         new_bound = buildBound(bound, new_tri, parent_tri, 2, useNear);
     }
 
+    new_bound = bound; //KD_DEBUG
+
     //New Node pushed to vec
     int node_idx = vec_kdnode.size();
     int currentDepth = node.depth;
@@ -1452,9 +1544,13 @@ void Scene::constructKDTrees() {
                 printf("BUG: %d %d\n", j, vec_kdnode[j].trisIndex);
             }*/
         }
-
+        glm::vec3 minCorn;
+        glm::vec3 maxCorn;
+        buildBounds(tri_arr, ref->root, minCorn, maxCorn);
     }
+#if USE_KD_VEC
     for (int i = 0; i < vec_kdnode.size(); i++) {
         vec_kdnode[i].numIndices = vec_kdnode[i].tempBuffer.size();
     }
+#endif
 }

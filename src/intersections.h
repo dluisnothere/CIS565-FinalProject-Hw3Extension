@@ -7,6 +7,7 @@
 #include "utilities.h"
 #include "cuda_runtime.h"
 
+#define USE_REC 0
 /**
  * Handy-dandy hash function that provides seeds for random number generation.
  */
@@ -365,6 +366,7 @@ __host__ __device__ float triangleIntersectionTest(Geom* geom, Triangle* triangl
 
 }
 #endif
+
 __host__ __device__ float treeIntersectionTest(
     Geom* geom
     , Ray r
@@ -387,23 +389,13 @@ __host__ __device__ float treeIntersectionTest(
 
     float t_min = FLT_MAX;
 
-    KDNode& node = trees[node_idx];
+    
     //printf("%d \n", node_idx);    
     //printf("1\n");
-    /*float t = triangleIntersectionTest(geom, &geom->device_tris[node.trisIndex], r, tmp_intersect, tmp_normal, tmp_uv, outside);
-
-    tmpHitObj = true;
-    if (t > 0.0f && t_min > t)
-    {
-        t_min = t;
-        intersectionPoint = tmp_intersect;
-        normal = tmp_normal;
-        uv = tmp_uv;
-        hitObj = tmpHitObj;
-        changedTmin = true;
-        return t_min;
-    }*/
-
+#if USE_REC  
+    KDNode& node = trees[node_idx];
+#if USE_KD_VEC
+    
     float t = -1;
     for (int i = 0; i < node.numIndices; i++) { //KD_DEBUG
         /*if (node_idx == 1 && thread_idx == 87973) {
@@ -443,6 +435,21 @@ __host__ __device__ float treeIntersectionTest(
             changedTmin = true;
         }
     }
+#else
+    float t = triangleIntersectionTest(geom, &geom->device_tris[node.trisIndex], r, tmp_intersect, tmp_normal, tmp_uv, outside);
+
+    tmpHitObj = true;
+    if (t > 0.0f && t_min > t)
+    {
+        t_min = t;
+        intersectionPoint = tmp_intersect;
+        normal = tmp_normal;
+        uv = tmp_uv;
+        hitObj = tmpHitObj;
+        changedTmin = true;
+        return t_min;
+    }
+#endif 
     if (changedTmin) {
         return t_min;
     }
@@ -474,10 +481,12 @@ __host__ __device__ float treeIntersectionTest(
         first_node = t_near >= t_far ? node.near_node : node.far_node;
         //printf("Check: %f %f, Node: %i %i, result: %i\n", t_near, t_far, node.near_node, node.far_node, first_node);
     }
+ 
 
-    if ((first_node >= 0 || true) && node.far_node != -1) {
-        //t = treeIntersectionTest(geom, r, tmp_intersect, tmp_normal, tmp_uv, outside, trees, first_node, thread_idx);
-        t = treeIntersectionTest(geom, r, tmp_intersect, tmp_normal, tmp_uv, outside, trees, node.far_node, thread_idx);
+    if (first_node >= 0) {
+    //if ((first_node >= 0 || true) && node.far_node != -1) {
+        t = treeIntersectionTest(geom, r, tmp_intersect, tmp_normal, tmp_uv, outside, trees, first_node, thread_idx);
+        //t = treeIntersectionTest(geom, r, tmp_intersect, tmp_normal, tmp_uv, outside, trees, node.far_node, thread_idx);
 
         tmpHitObj = true;
         if (t > 0.0f && t_min > t)
@@ -493,7 +502,7 @@ __host__ __device__ float treeIntersectionTest(
     }
 
     if (secon_node >= 0) {
-        //t = treeIntersectionTest(geom, r, tmp_intersect, tmp_normal, tmp_uv, outside, trees, secon_node, thread_idx);
+        t = treeIntersectionTest(geom, r, tmp_intersect, tmp_normal, tmp_uv, outside, trees, secon_node, thread_idx);
 
         tmpHitObj = true;
         if (t > 0.0f && t_min > t)
@@ -511,6 +520,117 @@ __host__ __device__ float treeIntersectionTest(
     {
         return t_min;
     }
+#else 
+//Can use stack to store triangles and nodes
+    int nodeStack[512] = { -1 };
+    int stack_ptr = 0;
+    nodeStack[stack_ptr] = node_idx;
+    int numTris = geom->numTris;
+    /*if (thread_idx != 456415) {
+        return -1;
+    }*/
+    int counter = 0;
+    while (true) {
+        if (stack_ptr >= 510) {
+            printf("Previous values %d %d %d %d\n", nodeStack[stack_ptr - 3], nodeStack[stack_ptr - 2], nodeStack[stack_ptr - 1], thread_idx);
+            printf("Positive Shit\n");
+        }
+        
+        if (stack_ptr < 0) {
+            return -1;
+        }
+        if (nodeStack[stack_ptr] < 0) {
+            //printf("Stack Pointer about to access %i\n", stack_ptr);
+            /*if (thread_idx == 456415) {
+                printf("Popping %d with indes %d count %d\n", nodeStack[stack_ptr], stack_ptr, counter);
+                counter++;
+            }*/
+            int compareTris = nodeStack[stack_ptr] * -1 - 1;
+            float t = triangleIntersectionTest(geom, &geom->device_tris[compareTris], r, tmp_intersect, tmp_normal, tmp_uv, outside);
+
+            tmpHitObj = true;
+            if (t > 0.0f && t_min > t)
+            {
+                t_min = t;
+                intersectionPoint = tmp_intersect;
+                normal = tmp_normal;
+                uv = tmp_uv;
+                hitObj = tmpHitObj;
+                changedTmin = true;
+                return t_min;
+            }
+            stack_ptr--;
+            
+        }
+        else {
+            /*if (thread_idx == 456415) {
+                printf("Popping %d with indes %d count %d\n", nodeStack[stack_ptr], stack_ptr, counter);
+                counter++;
+            }*/
+            KDNode& node = trees[nodeStack[stack_ptr]];
+            int trisIndex = node.trisIndex;
+            int near_node = node.near_node;
+            int far_node = node.far_node;
+            stack_ptr--;
+
+            float t_near = -1;
+            float t_far = -1;
+
+            if (near_node >= 0) {
+                t_near = boundBoxNodeIntersectionTest(geom, r, tmp_intersect, tmp_normal, outside, trees[near_node].bound);
+            }
+            if (far_node >= 0) {
+                t_far = boundBoxNodeIntersectionTest(geom, r, tmp_intersect, tmp_normal, outside, trees[far_node].bound);
+            }
+
+            //May need to check both case
+            int first_node = -1;
+            int secon_node = -1;
+            if (node_idx == 0) {
+                //printf("t_near: %f, t_far: %f Node: %i\n", t_near, t_far, node_idx);
+            }
+            if (t_near > -.01 && t_far > -.01) {
+                //Check smaller first
+                first_node = t_near < t_far ? node.near_node : node.far_node;
+                secon_node = t_near >= t_far ? node.near_node : node.far_node;
+                //printf("Check: %f %f, Node: %i %i, result: %i %i\n", t_near, t_far, node.near_node, node.far_node, first_node, secon_node);
+            }
+            else {
+                //Check larger, either other one or both is negative -1
+                first_node = t_near >= t_far ? node.near_node : node.far_node;
+                //printf("Check: %f %f, Node: %i %i, result: %i\n", t_near, t_far, node.near_node, node.far_node, first_node);
+            }
+            //printf("On Call: %d %d %d\n", secon_node, trisIndex * -1, first_node);
+            if (secon_node >= 0) {
+                stack_ptr++;
+                /*if (thread_idx == 456415) {
+                    printf("Pushing %d with indes %d count %d\n", secon_node, stack_ptr, counter);
+                    counter++;
+                }*/
+                nodeStack[stack_ptr] = secon_node;
+            }
+            
+            stack_ptr++;
+            /*if (thread_idx == 456415) {
+                printf("Pushing %d with indes %d count %d\n", trisIndex * -1, stack_ptr, counter);
+                counter++;
+            }*/
+            nodeStack[stack_ptr] = (trisIndex + 1) * -1;
+
+            if (first_node >= 0) {
+                stack_ptr++;
+                /*if (thread_idx == 456415) {
+                    printf("Pushing %d with indes %d count %d\n", first_node, stack_ptr, counter);
+                    counter++;
+                }*/
+                nodeStack[stack_ptr] = first_node;
+            }
+            
+        }
+    }
+
+
+#endif
 
     return -1;
 }

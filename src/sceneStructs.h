@@ -14,6 +14,7 @@
 #define USE_UV 1
 #define USE_PROCEDURAL_TEXTURE 0 // cannot be on at the same time as USE_UV
 #define BUMP_MAP 0
+#define USE_KD_VEC 0;
 
 enum GeomType {
     SPHERE,
@@ -82,10 +83,13 @@ struct KDNode {
     BoundBox bound; //should be max and min values of geom and subtrees. They are computed after tree is constructed
 
     //For debugging only
+#if USE_KD_VEC
     int* device_trisIndices;
     std::vector<int> tempBuffer;
     int numIndices;
+#endif
     int depth;
+
 };
 
 struct Geom {
