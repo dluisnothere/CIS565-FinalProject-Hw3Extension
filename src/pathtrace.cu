@@ -796,6 +796,10 @@ __global__ void kernComputeShadeSAR(
 	, Material* materials
 	, int depth
 	, Camera cam
+	, float ui_diffuseReflection
+	, float ui_specularReflection
+	, float ui_roughnessFactor
+	, float ui_surfaceBrilliance
 )
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -811,10 +815,11 @@ __global__ void kernComputeShadeSAR(
 			}*/
 			thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, 0);
 			thrust::uniform_real_distribution<float> u01(0, 1);
-			float Fd = 0.2f;
-			float Fb = 0.3f;
-			float Fs = 0.6f;
-			float Fr = 0.3f;
+
+			float Fd = ui_diffuseReflection;//0.2f;
+			float Fb = ui_surfaceBrilliance;//0.3f;
+			float Fs = ui_specularReflection;//0.6f;
+			float Fr = ui_roughnessFactor;//0.3f;
 			//Fd: diffuse reflection coefficient [0....1]
 			// material.hasRefractive, REFR
 			//Fb: surface brilliance factor [default value: 1].
@@ -996,7 +1001,12 @@ __global__ void kernLetMeCheckRange(
  * Wrapper for the __global__ call that sets up the kernel calls and does a ton
  * of memory management
  */
-void pathtrace(uchar4* pbo, int frame, int iter) {
+void pathtrace(uchar4* pbo, int frame, int iter,
+	float ui_diffuseReflection,
+	float ui_specularReflection,
+	float ui_roughnessFactor,
+	float ui_surfaceBrilliance) {
+
 	const int traceDepth = hst_scene->state.traceDepth;
 	const Camera& cam = hst_scene->state.camera;/*
 	cudaMalloc(&dev_camera, sizeof(Camera));
@@ -1154,7 +1164,11 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 			dev_paths,
 			dev_materials,
 			depth,
-			cam
+			cam,
+			ui_diffuseReflection,
+			ui_specularReflection,
+			ui_roughnessFactor,
+			ui_surfaceBrilliance
 );
 		if (depth > 1) {
 			kernComputeBlockToCameraSAR << <numblocksPathSegmentTracing, blockSize1d >> > (

@@ -34,6 +34,11 @@ extern int height;
 
 extern bool sceneIsReady;
 
+extern float ui_diffuseReflection;
+extern float ui_specularReflection;
+extern float ui_roughnessFactor;
+extern float ui_surfaceBrilliance;
+
 void constructTrajectory();
 void initReceiver();
 void runCuda();

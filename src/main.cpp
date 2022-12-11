@@ -33,6 +33,11 @@ int iteration;
 int width;
 int height;
 
+float ui_diffuseReflection = 0.2f;
+float ui_specularReflection = 0.6f;
+float ui_roughnessFactor = 0.3f;
+float ui_surfaceBrilliance = 0.3f;
+
 #define useSAR 0
 #define constRayCast 1
 
@@ -461,7 +466,12 @@ void runCuda() {
 
 			// execute the kernel
 			int frame = 0;
-			pathtrace(pbo_dptr, frame, iteration);
+			pathtrace(pbo_dptr, frame, iteration,
+				ui_diffuseReflection,
+				ui_specularReflection,
+				ui_roughnessFactor,
+				ui_surfaceBrilliance
+			);
 			renderState->moveReceiver = false;
 
 			// unmap buffer object
@@ -482,7 +492,12 @@ void runCuda() {
 
 			// execute the kernel
 			int frame = 0;
-			pathtrace(pbo_dptr, frame, iteration);
+			pathtrace(pbo_dptr, frame, iteration,
+				ui_diffuseReflection,
+				ui_specularReflection,
+				ui_roughnessFactor,
+				ui_surfaceBrilliance
+			);
 
 			// unmap buffer object
 			cudaGLUnmapBufferObject(pbo);

@@ -211,6 +211,13 @@ void RenderImGui()
 	static float f = 0.0f;
 	static int counter = 0;
 
+	// Dear imgui define
+	ImVec2 minSize(400.f, 220.f);
+	int display_w, display_h;
+	glfwGetFramebufferSize(window, &display_w, &display_h);
+	ImVec2 maxSize((float)display_w * 0.7, (float)display_h * 0.3);
+	ImGui::SetNextWindowSizeConstraints(minSize, maxSize);
+
 	ImGui::Begin("Path Tracer Analytics");                  // Create a window called "Hello, world!" and append into it.
 	
 	// LOOK: Un-Comment to check the output window and usage
@@ -251,6 +258,10 @@ void RenderImGui()
 	}
 
 
+	ImGui::SliderFloat("Diffuse Reflection", &ui_diffuseReflection, 0.0f, 1.0f);
+	ImGui::SliderFloat("Specular Reflection", &ui_specularReflection, 0.0f, 1.0f);
+	ImGui::SliderFloat("Roughness Factor", &ui_roughnessFactor, 0.0f, 1.0f);
+	ImGui::SliderFloat("Surface Brilliance", &ui_surfaceBrilliance, 0.0f, 1.0f);
 
 	ImGui::End();
 
