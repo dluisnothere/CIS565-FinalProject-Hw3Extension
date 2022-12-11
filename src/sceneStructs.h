@@ -15,7 +15,6 @@
 enum GeomType {
     SPHERE,
     CUBE,
-    TRIANGLE, // Triangle only exists in the scene if USE_BOUND_BOX 0
     OBJ, // Obj only exists in the scene if USE_BOUND_BOX 1
     GLTF
 };
@@ -52,13 +51,14 @@ struct Ray {
 struct Vertex {
     glm::vec4 pos;
     glm::vec4 nor;
-    std::vector<int> host_texCoords;
-    std::vector<glm::vec2> host_uvs;
+    //std::vector<int> host_texCoords;
+    //std::vector<glm::vec2> host_uvs;
+    glm::vec2 uv = glm::vec2(-1, -1);
 
     glm::vec4 tan = glm::vec4(0.f, 0.f, 0.f, 0.f); // dummy vals;'
 
-    int* dev_texCoords;
-    glm::vec2* dev_uvs;
+    /*int* dev_texCoords;
+    glm::vec2* dev_uvs;*/
     //int materialId;
 };
 

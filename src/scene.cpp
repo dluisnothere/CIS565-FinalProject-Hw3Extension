@@ -475,14 +475,18 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                 const glm::vec4 bNor = glm::vec4(nb.x, nb.y, nb.z, 0);
                 const glm::vec4 cNor = glm::vec4(nc.x, nc.y, nc.z, 0);
 
-                std::vector<glm::vec2> aUvList = std::vector<glm::vec2>();
-                std::vector<int> aTexCoord = std::vector<int>();
+                //std::vector<glm::vec2> aUvList = std::vector<glm::vec2>();
+                //std::vector<int> aTexCoord = std::vector<int>();
 
-                std::vector<glm::vec2> bUvList = std::vector<glm::vec2>();
-                std::vector<int> bTexCoord = std::vector<int>();
+                //std::vector<glm::vec2> bUvList = std::vector<glm::vec2>();
+                //std::vector<int> bTexCoord = std::vector<int>();
 
-                std::vector<glm::vec2> cUvList = std::vector<glm::vec2>();
-                std::vector<int> cTexCoord = std::vector<int>();
+                //std::vector<glm::vec2> cUvList = std::vector<glm::vec2>();
+                //std::vector<int> cTexCoord = std::vector<int>();
+
+                Vertex vertA = Vertex{ aPos, aNor };
+                Vertex vertB = Vertex{ bPos, bNor };
+                Vertex vertC = Vertex{ cPos, cNor };
 
                 if (maxTexCoord > -1) {
                     for (int j = 0; j <= maxTexCoord; j++) {
@@ -495,33 +499,33 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                         const glm::vec2 bUv = glm::vec2(ub.x, ub.y);
                         const glm::vec2 cUv = glm::vec2(uc.x, uc.y);
 
+                        vertA.uv = aUv;
+                        vertB.uv = bUv;
+                        vertC.uv = cUv;
+
                         //// separate uvs from everything else bc it's a different process.
 
-                        aUvList.push_back(aUv);
-                        aTexCoord.push_back(j);
+                        //aUvList.push_back(aUv);
+                        //aTexCoord.push_back(j);
 
-                        bUvList.push_back(bUv);
-                        bTexCoord.push_back(j);
+                        //bUvList.push_back(bUv);
+                        //bTexCoord.push_back(j);
 
-                        cUvList.push_back(cUv);
-                        cTexCoord.push_back(j);
+                        //cUvList.push_back(cUv);
+                        //cTexCoord.push_back(j);
                     }
                 }
-                else {
-                    // add only 1 dummy uv to the list
-                    aUvList.push_back(glm::vec2(-1.f, -1.f));
-                    aTexCoord.push_back(-1);
-                    bUvList.push_back(glm::vec2(-1.f, -1.f));
-                    bTexCoord.push_back(-1);
-                    cUvList.push_back(glm::vec2(-1.f, -1.f));
-                    cTexCoord.push_back(-1);
-                }
+                //else {
+                //    // add only 1 dummy uv to the list
+                //    aUvList.push_back(glm::vec2(-1.f, -1.f));
+                //    aTexCoord.push_back(-1);
+                //    bUvList.push_back(glm::vec2(-1.f, -1.f));
+                //    bTexCoord.push_back(-1);
+                //    cUvList.push_back(glm::vec2(-1.f, -1.f));
+                //    cTexCoord.push_back(-1);
+                //}
 
                 //// separate Uvs from everything else
-
-                Vertex vertA = Vertex{ aPos, aNor, aTexCoord, aUvList};
-                Vertex vertB = Vertex{ bPos, bNor, bTexCoord, bUvList};
-                Vertex vertC = Vertex{ cPos, cNor, cTexCoord, cUvList};
 
                 if (tmpTangents.size() > 0) {
                     float4 ta = tmpTangents[aIdx];
@@ -724,29 +728,26 @@ int Scene::loadObj(const char* filename,
                     glm::vec4(nxc, nyc, nzc, 0)
                 };
 
-#if USE_UV
                 // Check if `texcoord_index` is zero or positive. negative = no texcoord data
                 // don't texture yet
                 if (idxa.texcoord_index >= 0) {
                     tinyobj::real_t txa = attrib.texcoords[2 * size_t(idxa.texcoord_index) + 0];
                     tinyobj::real_t tya = attrib.texcoords[2 * size_t(idxa.texcoord_index) + 1];
                     // vertA.hasUv = true;
-                    vertA.host_uvs.push_back(glm::vec2(txa, tya));
+                    vertA.uv = glm::vec2(txa, tya);
                 }
                 if (idxb.texcoord_index >= 0) {
                     tinyobj::real_t txb = attrib.texcoords[2 * size_t(idxb.texcoord_index) + 0];
                     tinyobj::real_t tyb = attrib.texcoords[2 * size_t(idxb.texcoord_index) + 1];
                     // vertB.hasUv = true;
-                    vertB.host_uvs.push_back(glm::vec2(txb, tyb));
+                    vertB.uv = glm::vec2(txb, tyb);
                 }
                 if (idxc.texcoord_index >= 0) {
                     tinyobj::real_t txc = attrib.texcoords[2 * size_t(idxc.texcoord_index) + 0];
                     tinyobj::real_t tyc = attrib.texcoords[2 * size_t(idxc.texcoord_index) + 1];
                     // vertC.hasUv = true;
-                    vertC.host_uvs.push_back(glm::vec2(txc, tyc));
+                    vertC.uv = glm::vec2(txc, tyc);
                 }
-
-#endif
 
                 Triangle triangle = {
                     vertA,
@@ -794,23 +795,16 @@ int Scene::loadGeom(string objectid) {
             }
             else if (strstr(line.c_str(), ".obj") != NULL) {
                 cout << "Creating some obj..." << endl;
-#if USE_BOUND_BOX
                 newGeom.type = OBJ;
-#else
-                newGeom.type = TRIANGLE;
-#endif
 
                 hasObj = true;
                 objFileName = line;
             }
             else if (strstr(line.c_str(), ".gltf") != NULL) {
                 cout << "creating some gltf... " << endl;
-#if USE_BOUND_BOX
-                // USELESS VARS BC ALL GEOMS ARE CREATED INISIDE OTHER FUNCTIONS FOR GLTF
+
                 newGeom.type = GLTF;
-#else
-                newGeom.type = TRIANGLE;
-#endif
+
                 hasGltf = true;
                 objFileName = line;
             }
@@ -860,7 +854,7 @@ int Scene::loadGeom(string objectid) {
         if (hasObj) {
             std::vector<Triangle> triangleArray;
             loadObj(objFileName.c_str(), &triangleArray);
-#if USE_BOUND_BOX
+
             float xMin = FLT_MAX;
             float yMin = FLT_MAX;
             float zMin = FLT_MAX;
@@ -904,105 +898,11 @@ int Scene::loadGeom(string objectid) {
             geoms.push_back(newGeom);
             kdtree_indices.push_back(gltf_idx);
 
-#else 
-            // create geoms from triangles using newGeom properties
-            // load triangles into the geoms scene.
-            for (int i = 0; i < triangleArray.size(); i ++) {
-                // there should only be 1 triangle
-                Triangle* trisInGeom = new Triangle(triangleArray[i]);
-
-                // just a single triangle
-                Geom newTriGeom = {
-                    TRIANGLE,
-                    newGeom.materialid,
-                    newGeom.translation,
-                    newGeom.rotation,
-                    newGeom.scale,
-                    newGeom.transform,
-                    newGeom.inverseTransform,
-                    newGeom.invTranspose,
-                    trisInGeom,
-                    NULL, // device pointer is not yet allocated
-                    BoundBox {
-                        },
-                    1,
-                };
-                geoms.push_back(newTriGeom);
-            }
-#endif
         }
         else if (hasGltf) {
             //std::vector<Triangle> triangleArray;
             loadGltf(objFileName, &newGeom, &materials[newGeom.materialid]/*, &triangleArray, &geoms*/ ); // transforms are set in here.
 
-//#if USE_BOUND_BOX
-//            /*float xMin = FLT_MAX;
-//            float yMin = FLT_MAX;
-//            float zMin = FLT_MAX;
-//            float xMax = FLT_MIN;
-//            float yMax = FLT_MIN;
-//            float zMax = FLT_MIN;*/
-//
-//            /*for (int i = 0; i < triangleArray.size(); i++) {
-//                // jank code to find the min and max of the box
-//                Triangle tri = triangleArray[i];
-//
-//                xMin = fmin(fmin(tri.pointA.pos[0], tri.pointB.pos[0]), fmin(tri.pointC.pos[0], xMin));
-//                xMax = fmax(fmax(tri.pointA.pos[0], tri.pointB.pos[0]), fmax(tri.pointC.pos[0], xMax));
-//
-//                yMin = fmin(fmin(tri.pointA.pos[1], tri.pointB.pos[1]), fmin(tri.pointC.pos[1], yMin));
-//                yMax = fmax(fmax(tri.pointA.pos[1], tri.pointB.pos[1]), fmax(tri.pointC.pos[1], yMax));
-//
-//                zMin = fmin(fmin(tri.pointA.pos[2], tri.pointB.pos[2]), fmin(tri.pointC.pos[2], zMin));
-//                zMax = fmax(fmax(tri.pointA.pos[2], tri.pointB.pos[2]), fmax(tri.pointC.pos[2], zMax));
-//            }
-//
-//            BoundBox box = {
-//                glm::vec3(xMin, yMin, zMin),
-//                glm::vec3(xMax, yMax, zMax)
-//            };*/
-//
-//            //cout << "xMin: " << xMin << " , " << yMin << " , " << zMin << endl;
-//            //cout << "xMax: " << xMax << " , " << yMax << " , " << zMax << endl;
-//
-//
-//            //newGeom.host_tris = new Triangle[triangleArray.size()];//triangleArray.size()];
-//            //newGeom.device_tris = NULL;
-//            //newGeom.numTris = triangleArray.size();
-//
-//            //newGeom.bound = box;
-//            /*for (int i = 0; i < triangleArray.size(); i++) {
-//                newGeom.host_tris[i] = triangleArray[i];
-//            }*/
-//
-//            /*geoms.push_back(newGeom);*/
-//
-//#else 
-//            // create geoms from triangles using newGeom properties
-//            // load triangles into the geoms scene.
-//            for (int i = 0; i < triangleArray.size(); i++) {
-//                // there should only be 1 triangle
-//                Triangle* trisInGeom = new Triangle(triangleArray[i]);
-//
-//                // just a single triangle
-//                Geom newTriGeom = {
-//                    TRIANGLE,
-//                    newGeom.materialid,
-//                    newGeom.translation,
-//                    newGeom.rotation,
-//                    newGeom.scale,
-//                    newGeom.transform,
-//                    newGeom.inverseTransform,
-//                    newGeom.invTranspose,
-//                    trisInGeom,
-//                    NULL, // device pointer is not yet allocated
-//                    BoundBox {
-//                        },
-//                    1,
-//                };
-//                geoms.push_back(newTriGeom);
-//            }
-//#endif
         }
         else {
             if (newGeom.materialid == 0)
