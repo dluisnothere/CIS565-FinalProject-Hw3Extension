@@ -1,0 +1,11 @@
+Model Information:
+* title:	New York downtown
+* source:	https://sketchfab.com/3d-models/new-york-downtown-dd11841bba9e449f93a1bca38688753c
+* author:	FUD-UJEP (https://sketchfab.com/FUD-UJEP)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "New York downtown" (https://sketchfab.com/3d-models/new-york-downtown-dd11841bba9e449f93a1bca38688753c) by FUD-UJEP (https://sketchfab.com/FUD-UJEP) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
