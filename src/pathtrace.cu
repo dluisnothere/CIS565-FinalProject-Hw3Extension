@@ -30,7 +30,7 @@
 #define ORTHOGRAPHIC 1
 #define SARNAIVE 1
 #define PERF_ANALYSIS 0
-#define USE_KD 0
+#define USE_KD 1
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -196,7 +196,7 @@ void pathtraceInit(Scene* scene) {
 
 	for (int i = 0; i < scene->geoms.size(); i++) {
 		if (scene->geoms[i].numTris > 0) {
-			for (int j = 0; j < scene->geoms[i].numTris; j++) {
+			/*for (int j = 0; j < scene->geoms[i].numTris; j++) {
 				Vertex pointA = scene->geoms[i].host_tris[j].pointA;
 				Vertex pointB = scene->geoms[i].host_tris[j].pointB;
 				Vertex pointC = scene->geoms[i].host_tris[j].pointC;
@@ -218,7 +218,7 @@ void pathtraceInit(Scene* scene) {
 
 				cudaMemcpy(scene->geoms[i].host_tris[j].pointC.dev_uvs, scene->geoms[i].host_tris[j].pointC.host_uvs.data(), scene->geoms[i].host_tris[j].pointC.host_uvs.size() * sizeof(glm::vec2), cudaMemcpyHostToDevice);
 				checkCUDAError("cudaMemcpy device_uvs C failed");
-			}
+			}*/
 			cudaMalloc(&(scene->geoms[i].device_tris), scene->geoms[i].numTris * sizeof(Triangle));
 			checkCUDAError("cudaMalloc device_tris failed");
 			cudaMemcpy(scene->geoms[i].device_tris, scene->geoms[i].host_tris, scene->geoms[i].numTris * sizeof(Triangle), cudaMemcpyHostToDevice);
@@ -306,14 +306,14 @@ void pathtraceFree() {
 			cudaMemcpy(tmp_tri_pointer, tmp_geom_pointer[i].device_tris, numTris * sizeof(Triangle), cudaMemcpyDeviceToHost);
 			checkCUDAError("303 cudaMemcpy tmp_tri_pointer failed");
 
-			for (int j = 0; j < numTris; j++) {
+			/*for (int j = 0; j < numTris; j++) {
 				cudaFree(tmp_tri_pointer[j].pointA.dev_uvs);
 				checkCUDAError("cudaFree point A device_uvs failed");
 				cudaFree(tmp_tri_pointer[j].pointB.dev_uvs);
 				checkCUDAError("cudaFree point B device_uvs failed");
 				cudaFree(tmp_tri_pointer[j].pointC.dev_uvs);
 				checkCUDAError("cudaFree point C device_uvs failed");
-			}
+			}*/
 
 			cudaFree(tmp_geom_pointer[i].device_tris);
 			checkCUDAError("cudaFree device_tris failed");

@@ -101,7 +101,7 @@ UP          0 1 0
 
 // texture obj
 OBJECT 0
-../gltfs/city_grid_block_resized/scene.gltf
+../gltfs/city_grid_block_moved/scene.gltf
 material 8
 TRANS		0 0 0
 ROTAT	      0 -180 0
