@@ -30,7 +30,7 @@
 #define ORTHOGRAPHIC 1
 #define SARNAIVE 1
 #define PERF_ANALYSIS 0
-#define USE_KD 0
+#define USE_KD 1
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
