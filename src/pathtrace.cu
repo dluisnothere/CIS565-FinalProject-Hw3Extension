@@ -30,7 +30,7 @@
 #define ORTHOGRAPHIC 1
 #define SARNAIVE 1
 #define PERF_ANALYSIS 0
-#define USE_KD 1
+#define USE_KD 0
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -196,7 +196,7 @@ void pathtraceInit(Scene* scene) {
 
 	for (int i = 0; i < scene->geoms.size(); i++) {
 		if (scene->geoms[i].numTris > 0) {
-			/*for (int j = 0; j < scene->geoms[i].numTris; j++) {
+			for (int j = 0; j < scene->geoms[i].numTris; j++) {
 				Vertex pointA = scene->geoms[i].host_tris[j].pointA;
 				Vertex pointB = scene->geoms[i].host_tris[j].pointB;
 				Vertex pointC = scene->geoms[i].host_tris[j].pointC;
@@ -218,7 +218,7 @@ void pathtraceInit(Scene* scene) {
 
 				cudaMemcpy(scene->geoms[i].host_tris[j].pointC.dev_uvs, scene->geoms[i].host_tris[j].pointC.host_uvs.data(), scene->geoms[i].host_tris[j].pointC.host_uvs.size() * sizeof(glm::vec2), cudaMemcpyHostToDevice);
 				checkCUDAError("cudaMemcpy device_uvs C failed");
-			}*/
+			}
 			cudaMalloc(&(scene->geoms[i].device_tris), scene->geoms[i].numTris * sizeof(Triangle));
 			checkCUDAError("cudaMalloc device_tris failed");
 			cudaMemcpy(scene->geoms[i].device_tris, scene->geoms[i].host_tris, scene->geoms[i].numTris * sizeof(Triangle), cudaMemcpyHostToDevice);
@@ -306,14 +306,14 @@ void pathtraceFree() {
 			cudaMemcpy(tmp_tri_pointer, tmp_geom_pointer[i].device_tris, numTris * sizeof(Triangle), cudaMemcpyDeviceToHost);
 			checkCUDAError("303 cudaMemcpy tmp_tri_pointer failed");
 
-			/*for (int j = 0; j < numTris; j++) {
+			for (int j = 0; j < numTris; j++) {
 				cudaFree(tmp_tri_pointer[j].pointA.dev_uvs);
 				checkCUDAError("cudaFree point A device_uvs failed");
 				cudaFree(tmp_tri_pointer[j].pointB.dev_uvs);
 				checkCUDAError("cudaFree point B device_uvs failed");
 				cudaFree(tmp_tri_pointer[j].pointC.dev_uvs);
 				checkCUDAError("cudaFree point C device_uvs failed");
-			}*/
+			}
 
 			cudaFree(tmp_geom_pointer[i].device_tris);
 			checkCUDAError("cudaFree device_tris failed");
@@ -416,7 +416,7 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 		segment.ray.origin = cam.position
 			- cam.right * cam.pixelLength.x * ((float)x - (float)cam.resolution.x * 0.5f)
 			- cam.up * cam.pixelLength.y * ((float)y - (float)cam.resolution.y * 0.5f);
-
+		segment.origPixelPos = segment.ray.origin;
 		segment.ray.direction = cam.view;
 		//printf("camera lookAt: %f, %f, %f\n", cam.lookAt.x, cam.lookAt.y, cam.lookAt.z);
 		
@@ -431,16 +431,20 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 
 		segment.pixelIndex = index;
 		segment.pixelIndex2 = index;
+		segment.pixelIndex3 = index;
 		segment.ae1 = glm::vec2(x, y);
 		// debug hard code to 2 instead of traceDepth;
 		segment.remainingBounces = traceDepth;
 		segment.length1 = 0.f;
 		segment.length2 = 0.f;
 		segment.length3 = 0.f;
+		segment.primaryLength = 0.f;
 		segment.pixelIndexX = x;
 		segment.pixelIndexX2 = x;
+		segment.pixelIndexX3 = x;
 		segment.pixelIndexY = y;
 		segment.pixelIndexY2 = y;
+		segment.pixelIndexY3 = y;
 		segment.checkCameraBlock = true;
 		segment.fordebug = false;
 	}
@@ -587,6 +591,9 @@ __global__ void kernComputeBlockToCameraSAR(
 				pathSegments[path_index].color2 = glm::vec3(0.f);
 				//printf("my pathSegment pixelIndex2: %d", pathSegment.pixelIndex2);
 				//printf("my remainingBounces: %d\nmy debug: %d\n", pathSegment.remainingBounces, pathSegment.fordebug);
+			}
+			if (depth == 3) {
+				pathSegments[path_index].color3 = glm::vec3(0.f);
 			}
 
 		}
@@ -753,6 +760,13 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
 			}
 			image[iterationPath.pixelIndex2] += resultColor;
 		}
+		else if (depth == 3) {
+			glm::vec3 resultColor = glm::vec3(iterationPath.color3.r); //double bounce reflection
+			if (glm::isnan(resultColor.r)) {
+				resultColor = glm::vec3(0.f);
+			}
+			image[iterationPath.pixelIndex3] += resultColor;
+		}
 	}
 }
 
@@ -841,6 +855,7 @@ __global__ void kernComputeShadeSAR(
 				pathSegments[idx].color = glm::vec3(resultColor);
 				//pathSegments[idx].color += glm::vec3(u01(rng) * 0.1f);   //noise
 				pathSegments[idx].length1 = intersection.t;
+				pathSegments[idx].primaryLength = intersection.t;
 				pathSegments[idx].depth = 1;
 				if (isnan(pathSegments[idx].color.r)) {
 					pathSegments[idx].color = glm::vec3(0.f);
@@ -868,20 +883,58 @@ __global__ void kernComputeShadeSAR(
 				focusing.direction = focusingRayDir;
 				int pixelIdxX;
 				int pixelIdxY;
+				float secondBounceDecay = 0.7;
 				float t_cam = squarePlaneIntersectionTest(cam, focusing, pixelIdxX, pixelIdxY);
 
 				if (t_cam > 0.f) {
-					pathSegments[idx].color2 = glm::vec3(resultColor * pathSegments[idx].color.r);
+					pathSegments[idx].color2 = glm::vec3(secondBounceDecay * resultColor * pathSegments[idx].color.r);
 					if (isnan(pathSegments[idx].color2.r)) {
 						pathSegments[idx].color2 = glm::vec3(0.f);
 					}
 					//pathSegments[idx].color2 += glm::vec3(u01(rng) * 0.1f);    //noise
 					pathSegments[idx].length2 = (intersection.t + t_cam + pathSegments[idx].length1) / 2.f;
+					pathSegments[idx].primaryLength += intersection.t;
 					/*pathSegments[idx].pixelIndexX2 = (pixelIdxX + pathSegments[idx].pixelIndexX) / 2;
 					pathSegments[idx].pixelIndexY2 = (pixelIdxY + pathSegments[idx].pixelIndexY) / 2;*/
 					pathSegments[idx].depth = 2;
 					/*pathSegments[idx].pixelIndex2 = pathSegments[idx].pixelIndexX2 + (pathSegments[idx].pixelIndexY2 * cam.resolution.x);*/
 					
+					//update Ray
+					pathSegments[idx].ray.origin = focusingRayOri;
+					pathSegments[idx].ray.direction = focusingRayDir;
+					glm::vec3 V = glm::reflect(-L, N);
+					pathSegments[idx].realRayDir = V;
+					//»ØÑªbounce
+					++(pathSegments[idx].remainingBounces);
+				}
+				else {
+					pathSegments[idx].checkCameraBlock = false;
+				}
+			
+			}
+			else if (depth == 3) {
+				glm::vec3 focusingRayDir = pathSegments[idx].negPriRay;
+				glm::vec3 focusingRayOri = pathSegments[idx].ray.origin + intersection.t * pathSegments[idx].ray.direction + 0.001f * N;
+				Ray focusing;
+				focusing.origin = focusingRayOri;
+				focusing.direction = focusingRayDir;
+				int pixelIdxX;
+				int pixelIdxY;
+				float thirdBounceDecay = 0.5;
+				float t_cam = squarePlaneIntersectionTest(cam, focusing, pixelIdxX, pixelIdxY);
+
+				if (t_cam > 0.f) {
+					pathSegments[idx].color3 = glm::vec3(thirdBounceDecay * resultColor * pathSegments[idx].color2.r);
+					if (isnan(pathSegments[idx].color3.r)) {
+						pathSegments[idx].color3 = glm::vec3(0.f);
+					}
+					//pathSegments[idx].color2 += glm::vec3(u01(rng) * 0.1f);    //noise
+					pathSegments[idx].length3 = (intersection.t + t_cam + pathSegments[idx].primaryLength) / 2.f;
+					/*pathSegments[idx].pixelIndexX2 = (pixelIdxX + pathSegments[idx].pixelIndexX) / 2;
+					pathSegments[idx].pixelIndexY2 = (pixelIdxY + pathSegments[idx].pixelIndexY) / 2;*/
+					pathSegments[idx].depth = 3;
+					/*pathSegments[idx].pixelIndex2 = pathSegments[idx].pixelIndexX2 + (pathSegments[idx].pixelIndexY2 * cam.resolution.x);*/
+
 					//update Ray
 					pathSegments[idx].ray.origin = focusingRayOri;
 					pathSegments[idx].ray.direction = focusingRayDir;
@@ -962,6 +1015,16 @@ __global__ void kernTransToAzimuthRange(
 			}
 			pathSegment.pixelIndex2 = pathSegment.pixelIndexX2 + (y * camResolutionX);
 		}
+		else if (depth == 3) {
+			int y = (int)glm::floor(((pathSegment.length3 - minRange) / (maxRange - minRange)) * camResolutionY);
+			if (y < 0) {
+				y = 0;
+			}
+			if (y >= camResolutionY) {
+				y = camResolutionY - 1;
+			}
+			pathSegment.pixelIndex3 = pathSegment.pixelIndexX3 + (y * camResolutionX);
+		}
 	}
 }
 
@@ -969,18 +1032,8 @@ __global__ void kernUpdateLength(int num_paths, PathSegment* paths) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num_paths) {
 		PathSegment& pathSegment = paths[idx];
-		/*if (pathSegment.length3 > 0.f) {
-			pathSegment.length = pathSegment.length3;
-		}
-		else {
-			if (pathSegment.length2 > 0.f) {
-				pathSegment.length = pathSegment.length2;
-			}
-			else {
-				pathSegment.length = pathSegment.length1;
-			}
-		}*/
 		pathSegment.length = pathSegment.length1;
+		//pathSegment.length = max(max(pathSegment.length1, pathSegment.length2), pathSegment.length3);
 	}
 }
 
@@ -1230,6 +1283,7 @@ void pathtrace(uchar4* pbo, int frame, int iter,
 	kernUpdateLength << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths);
 	//calculate maxRange and minRange to form image in azimuth-range plane
 	PathSegment* longestSeg = thrust::max_element(thrust::device, dev_paths, dev_paths + num_paths, compare_range());
+
 	PathSegment* shortestSeg = thrust::min_element(thrust::device, dev_paths, dev_paths + num_paths, compare_range());
 	PathSegment host_maxRange;
 	PathSegment host_minRange;
@@ -1244,6 +1298,9 @@ void pathtrace(uchar4* pbo, int frame, int iter,
 	}
 
 	for (int i = 1; i <= traceDepth; ++i) {
+		if (i == 2 || i == 3) {
+			continue;
+		}
 		finalGather << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_paths, i, cam);
 	}
 

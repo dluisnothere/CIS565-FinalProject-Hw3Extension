@@ -423,14 +423,12 @@ void runCuda() {
 		glm::mat4 rot;
 		float yscaled = tan(cam.fov.y * (PI / 180));
 		float xscaled = (yscaled * cam.resolution.x) / cam.resolution.y;
-		if (glm::vec3(0, 0, -1) == cam.view) {
-			rot = glm::mat4(1.f);
-		}
-		else {
-			glm::vec3 rotAxis = glm::cross(glm::vec3(0, 0, -1), cam.view);
-			float angRad = glm::angle(glm::vec3(0, 0, -1), cam.view);
-			rot = glm::rotate(glm::mat4(1.f), angRad, rotAxis);
-		}
+
+		glm::quat rotateView = glm::rotation(glm::vec3(0, 0, -1), cam.view);
+		glm::vec3 rotatedUp = glm::rotate(rotateView, glm::vec3(0, 1, 0));
+		glm::quat rotateUp = glm::rotation(rotatedUp, cam.up);
+		rot = glm::toMat4(rotateUp * rotateView);
+
 		glm::mat4 translation = glm::translate(glm::mat4(1.0), glm::vec3(cam.position));
 		//the size of camera is determined by xscaled and yscaled, camera is by default 1 in front of the eye.
 		glm::mat4 scale = glm::scale(glm::vec3(xscaled, yscaled, 1.f)); //1, 1, 1
@@ -447,7 +445,6 @@ void runCuda() {
 			pathtraceFree();
 		}
 		pathtraceInit(scene);
-		std::cout << "Path trace start: " << currentTimeString() << std::endl;
 	}
 
 	if (usingSAR) {
@@ -479,7 +476,6 @@ void runCuda() {
 			cudaGLUnmapBufferObject(pbo);
 		}
 		else {
-			std::cout << "Path trace start: " << currentTimeString() << std::endl;
 			saveImage();
 			pathtraceFree();
 			cudaDeviceReset();
@@ -505,7 +501,6 @@ void runCuda() {
 			cudaGLUnmapBufferObject(pbo);
 		}
 		else {
-			std::cout << "Path trace start: " << currentTimeString() << std::endl;
 			saveImage();
 			pathtraceFree();
 			cudaDeviceReset();

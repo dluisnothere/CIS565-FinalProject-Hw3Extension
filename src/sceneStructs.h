@@ -15,6 +15,7 @@
 enum GeomType {
     SPHERE,
     CUBE,
+    TRIANGLE, // Triangle only exists in the scene if USE_BOUND_BOX 0
     OBJ, // Obj only exists in the scene if USE_BOUND_BOX 1
     GLTF
 };
@@ -51,14 +52,13 @@ struct Ray {
 struct Vertex {
     glm::vec4 pos;
     glm::vec4 nor;
-    //std::vector<int> host_texCoords;
-    //std::vector<glm::vec2> host_uvs;
-    glm::vec2 uv = glm::vec2(-1, -1);
+    std::vector<int> host_texCoords;
+    std::vector<glm::vec2> host_uvs;
 
     glm::vec4 tan = glm::vec4(0.f, 0.f, 0.f, 0.f); // dummy vals;'
 
-    /*int* dev_texCoords;
-    glm::vec2* dev_uvs;*/
+    int* dev_texCoords;
+    glm::vec2* dev_uvs;
     //int materialId;
 };
 
@@ -230,10 +230,13 @@ struct PathSegment {
     glm::vec3 color3;
     glm::vec3 outColor;
     glm::vec3 negPriRay;
+    glm::vec3 origPixelPos;
     int pixelIndex;
     int pixelIndex2;
+    int pixelIndex3;
     int remainingBounces;
     float length;
+    float primaryLength;
     float length1;
     float length2;
     float length3;
@@ -241,8 +244,10 @@ struct PathSegment {
     glm::vec2 ae1;
     int pixelIndexX;
     int pixelIndexX2;
+    int pixelIndexX3;
     int pixelIndexY;
     int pixelIndexY2;
+    int pixelIndexY3;
     
     glm::vec3 realRayDir;
     bool checkCameraBlock;
