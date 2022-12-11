@@ -447,6 +447,7 @@ void runCuda() {
 			pathtraceFree();
 		}
 		pathtraceInit(scene);
+		std::cout << "Path trace start: " << currentTimeString() << std::endl;
 	}
 
 	if (usingSAR) {
@@ -478,6 +479,7 @@ void runCuda() {
 			cudaGLUnmapBufferObject(pbo);
 		}
 		else {
+			std::cout << "Path trace start: " << currentTimeString() << std::endl;
 			saveImage();
 			pathtraceFree();
 			cudaDeviceReset();
@@ -503,6 +505,7 @@ void runCuda() {
 			cudaGLUnmapBufferObject(pbo);
 		}
 		else {
+			std::cout << "Path trace start: " << currentTimeString() << std::endl;
 			saveImage();
 			pathtraceFree();
 			cudaDeviceReset();
