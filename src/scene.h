@@ -22,12 +22,24 @@ private:
     int loadTexture(string textureid);
     int loadGeom(string objectid);
     int loadCamera();
+
+    //KDTree construction
+    bool triCompare(Triangle t1, Triangle t2, int index); //true if t2 > t1 false if t2 < t1
+    glm::vec3 triMin(Triangle t);
+    glm::vec3 triMax(Triangle t);
+    BoundBox buildBound(BoundBox box, Triangle t1, Triangle t2, int index, bool useNear);
+    void buildBounds(Triangle* tri_arr, int parent, glm::vec3& min, glm::vec3& max);
+    void createNode(int node_idx, int tri_idx, int parent_idx, BoundBox bound, KDSPLIT split, parentRelation rel, int depth); //called to fill a node in the kd node vector
+    void pushdown(Triangle* tri_arr, int parent, BoundBox bound, int tri_idx); //called to push a triangel down the tree
 public:
+    void constructKDTrees();
     Scene(string filename);
     //~Scene();
 
     std::vector<Geom> geoms;
     std::vector<Material> materials;
+    std::vector<int> kdtree_indices; //THIS REFERS TO THE INDEX OF GEOMS THAT HAVE KDTREES
+    std::vector<KDNode> vec_kdnode;
 
     // for textures
     std::vector<Texture> textures;

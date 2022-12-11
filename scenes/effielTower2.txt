@@ -95,7 +95,7 @@ FOVY        45
 ITERATIONS  1
 DEPTH       2
 FILE        cornell
-EYE         1.5 3 1.5
+EYE         1.5 -3 1.5
 LOOKAT      0 0.3 0
 UP          0 1 0
 

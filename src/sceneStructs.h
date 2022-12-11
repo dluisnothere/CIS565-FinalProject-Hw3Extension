@@ -10,9 +10,7 @@
 
 #define LOAD_GLTF 1
 #define LOAD_OBJ 1
-#define USE_BOUND_BOX 1
-#define USE_PROCEDURAL_TEXTURE 0 // cannot be on at the same time as USE_UV
-#define BUMP_MAP 0
+#define USE_KD_VEC 0;
 
 enum GeomType {
     SPHERE,
@@ -27,6 +25,18 @@ enum SARMode {
     CIRCULAR_SPOTLIGHT,
     SCANNING,
     STRIPMAP
+};
+
+enum KDSPLIT {
+    X,
+    Y,
+    Z
+};
+
+enum parentRelation {
+    LEFT,
+    RIGHT,
+    ROOT
 };
 
 struct BoundBox {
@@ -58,6 +68,26 @@ struct Triangle {
     Vertex pointC;
 };
 
+struct KDNode {
+    KDSPLIT split;
+    parentRelation relation;
+    int parent_node;
+    int near_node;
+    int far_node;
+    //Refers to the triangle buffer 
+    int trisIndex; 
+    BoundBox bound; //should be max and min values of geom and subtrees. They are computed after tree is constructed
+
+    //For debugging only
+#if USE_KD_VEC
+    int* device_trisIndices;
+    std::vector<int> tempBuffer;
+    int numIndices;
+#endif
+    int depth;
+
+};
+
 struct Geom {
     enum GeomType type;
     int materialid;
@@ -71,6 +101,7 @@ struct Geom {
     Triangle* host_tris;
     Triangle* device_tris;
     BoundBox bound;
+    int root;
     int numTris = 0;
 
 #if LOAD_OBJ

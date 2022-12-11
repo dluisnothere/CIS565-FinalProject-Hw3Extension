@@ -30,6 +30,7 @@
 #define ORTHOGRAPHIC 1
 #define SARNAIVE 1
 #define PERF_ANALYSIS 0
+#define USE_KD 0
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -97,6 +98,7 @@ static Geom* dev_geoms = NULL;
 static Material* dev_materials = NULL;
 static PathSegment* dev_paths = NULL;
 static ShadeableIntersection* dev_intersections = NULL;
+static KDNode* dev_kdtrees = NULL;
 static Camera* dev_camera = NULL;
 
 static float* dev_maxRange;
@@ -116,6 +118,7 @@ static int* dev_textureChannels;
 static int numTextures;
 static int numGeoms; //cursed variables to cudaFree nested pointers;
 static int numMaterials;
+static int numNodes; //KD_DEBUG
 
 static Geom* dev_lights = NULL;
 
@@ -170,11 +173,15 @@ void createTexture(const Texture &t, int numChannels, int texIdx) {
 }
 
 void pathtraceInit(Scene* scene) {
+	printf("Beginning Memory Alloc");
 	hst_scene = scene;
+	//hst_scene->constructKDTrees();
 	numTextures = hst_scene->textures.size();
 
 	numGeoms = hst_scene->geoms.size();
 	numMaterials = hst_scene->materials.size();
+
+	numNodes = hst_scene->vec_kdnode.size();
 
 	const Camera& cam = hst_scene->state.camera;
 	const int pixelcount = cam.resolution.x * cam.resolution.y;
@@ -218,6 +225,14 @@ void pathtraceInit(Scene* scene) {
 			checkCUDAError("cudaMemcpy device_tris failed");
 		}
 	}
+#if USE_KD_VEC
+	for (int i = 0; i < scene->vec_kdnode.size(); i++) {
+		cudaMalloc(&(scene->vec_kdnode[i].device_trisIndices), scene->vec_kdnode[i].tempBuffer.size() * sizeof(int));
+		checkCUDAError("cudaMalloc device_trisIndices failed");
+		cudaMemcpy(scene->vec_kdnode[i].device_trisIndices, scene->vec_kdnode[i].tempBuffer.data(), scene->vec_kdnode[i].tempBuffer.size() * sizeof(int), cudaMemcpyHostToDevice);
+		checkCUDAError("cudaMemcpy device_trisIndices failed");
+	}
+#endif
 
 	cudaMalloc(&dev_geoms, scene->geoms.size() * sizeof(Geom));
 	checkCUDAError("cudaMalloc dev_geoms failed");
@@ -232,7 +247,13 @@ void pathtraceInit(Scene* scene) {
 	cudaMalloc(&dev_intersections, pixelcount * sizeof(ShadeableIntersection));
 	checkCUDAError("cudaMalloc dev_intersections failed");
 	cudaMemset(dev_intersections, 0, pixelcount * sizeof(ShadeableIntersection));
-	checkCUDAError("cudaMemcpy dev_intersectionsf ailed");
+	checkCUDAError("cudaMemcpy dev_intersections failed");
+
+	printf("Allocating Kd Nodes\n");
+	cudaMalloc(&dev_kdtrees, scene->vec_kdnode.size() * sizeof(KDNode));
+	checkCUDAError("cudaMalloc dev_kdtrees failed");
+	cudaMemcpy(dev_kdtrees, scene->vec_kdnode.data(), scene->vec_kdnode.size() * sizeof(KDNode), cudaMemcpyHostToDevice);
+	checkCUDAError("cudaMemcpy dev_kdtrees failed");
 
 	cudaMalloc(&dev_textureChannels, scene->textures.size() * sizeof(int));
 	checkCUDAError("cudaMalloc dev_textureChannels failed");
@@ -260,7 +281,10 @@ void pathtraceInit(Scene* scene) {
 	cudaEventCreate(&beginEvent);
 	cudaEventCreate(&endEvent);
 #endif
-
+	size_t size;
+	cudaDeviceSetLimit(cudaLimitStackSize, 5128);
+	cudaDeviceGetLimit(&size, cudaLimitStackSize);
+	printf("stack size in bytes %d \n", size);
 	checkCUDAError("pathtraceInit");
 }
 
@@ -295,6 +319,17 @@ void pathtraceFree() {
 			checkCUDAError("cudaFree device_tris failed");
 		}
 	}
+#if USE_KD_VEC
+	int numN = numNodes;
+	KDNode* tmp_node_pointer = new KDNode[numN];
+	cudaMemcpy(tmp_node_pointer, dev_kdtrees, numN * sizeof(KDNode), cudaMemcpyDeviceToHost);
+	for (int i = 0; i < numN; i++) {
+		cudaFree(tmp_node_pointer[i].device_trisIndices);
+		checkCUDAError("cudaFree device_trisIndices failed"); //KD_DEBUG
+
+	}
+	delete[] tmp_node_pointer; //KD_DEBUG
+#endif
 
 	delete[] tmp_geom_pointer;
 
@@ -308,6 +343,7 @@ void pathtraceFree() {
 	cudaFree(dev_geoms);
 	cudaFree(dev_materials);
 	cudaFree(dev_intersections);
+	cudaFree(dev_kdtrees);
 	// TODO: clean up any extra device memory you created
 
 #if PERF_ANALYSIS
@@ -318,6 +354,8 @@ void pathtraceFree() {
 		cudaEventDestroy(endEvent);
 	}
 #endif
+	
+
 	checkCUDAError("pathtraceFree");
 }
 
@@ -415,15 +453,19 @@ __global__ void kernComputeBlockToCameraSAR(
 	, Geom* geoms
 	, int geoms_size
 	, ShadeableIntersection* intersections
-) {
+	, KDNode* kdtrees
+#if BUMP_MAP
+	, cudaTextureObject_t* textureObjs
+	, Texture* texs
+#endif
+
+)
+{
 	int path_index = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (path_index < num_paths)
 	{
 		PathSegment pathSegment = pathSegments[path_index];
-		if (pathSegment.remainingBounces == 0) {
-			return;
-		}
 		if (!(pathSegment.checkCameraBlock)) {
 			return;
 		}
@@ -466,14 +508,43 @@ __global__ void kernComputeBlockToCameraSAR(
 				float boxT = boundBoxIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
 
 				if (boxT != -1) {
-					for (int j = 0; j < geom.numTris; j++) {
-#if BUMP_MAP
-						cudaTextureObject_t texObj = textureObjs[geom.textureid];
-						Texture tex = texs[geom.textureid];
-						t = triangleIntersectionTest(&geom, &geom.device_tris[j], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, texObj, tex, outside);
+#if USE_KD
+
+					t = treeIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal,  tmp_uv, tmp_tangent, outside, kdtrees, geom.root, path_index);
+					tmpHitObj = true;
+					if (t > 0.0f && t_min > t)
+					{
+						t_min = t;
+						hit_geom_index = i;
+						intersect_point = tmp_intersect;
+						normal = tmp_normal;
+						uv = tmp_uv;
+						hitObj = tmpHitObj;
+					}
+					/*for (int j = 0; j < geom.numTris; j++) {
+
+						t = triangleIntersectionTest(&geom, &geom.device_tris[kdtrees[j].trisIndex], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, outside);
+						tmpHitObj = true;
+
+						if (kdtrees[j].trisIndex != j) {
+							printf("BUG: %d %d\n", kdtrees[j].trisIndex, j);
+						}
+
+						if (t > 0.0f && t_min > t)
+						{
+							printf("%f \n", t);
+							t_min = t;
+							hit_geom_index = i;
+							intersect_point = tmp_intersect;
+							normal = tmp_normal;
+							uv = tmp_uv;
+							hitObj = tmpHitObj;
+						}
+					}*/
 #else
+					for (int j = 0; j < geom.numTris; j++) {
 						t = triangleIntersectionTest(&geom, &geom.device_tris[j], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_tangent, outside);
-#endif
+
 						tmpHitObj = true;
 
 						if (t > 0.0f && t_min > t)
@@ -487,19 +558,10 @@ __global__ void kernComputeBlockToCameraSAR(
 							tangent = tmp_tangent;
 						}
 					}
+#endif
 				}
 			}
-			else if (geom.type == TRIANGLE) {
-				// Only use the first triangle, since in Triangle mode, each geom only has 1 triangle
-#if BUMP_MAP
-				cudaTextureObject_t texObj = textureObjs[geom.textureid];
-				Texture tex = texs[geom.textureid];
-				t = triangleIntersectionTest(&geom, &geom.device_tris[0], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, texObj, tex, outside);
-#else
-				t = triangleIntersectionTest(&geom, &geom.device_tris[0], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_tangent, outside);
-#endif
-				tmpHitObj = true;
-			}
+			
 			// Compute the minimum t from the intersection tests to determine what
 			// scene geometry object was hit first.
 			if (t > 0.0f && t_min > t)
@@ -529,8 +591,8 @@ __global__ void kernComputeBlockToCameraSAR(
 
 		}
 		//no matter what, bounce should minus 1
-		--(pathSegment.remainingBounces);
-		pathSegment.ray.direction = pathSegment.realRayDir;
+		--(pathSegments[path_index].remainingBounces);
+		pathSegments[path_index].ray.direction = pathSegments[path_index].realRayDir;
 	}
 }
 
@@ -541,6 +603,7 @@ __global__ void computeIntersectionsSAR(
 	, Geom* geoms
 	, int geoms_size
 	, ShadeableIntersection* intersections
+	, KDNode* kdtrees
 ) {
 	int path_index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -551,6 +614,7 @@ __global__ void computeIntersectionsSAR(
 		if (pathSegment.remainingBounces == 0) {
 			return;
 		}
+
 		float t;
 		glm::vec3 intersect_point;
 		glm::vec3 normal;
@@ -589,6 +653,20 @@ __global__ void computeIntersectionsSAR(
 				float boxT = boundBoxIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
 
 				if (boxT != -1) {
+#if USE_KD
+					t = treeIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_tangent, outside, kdtrees, geom.root, path_index);
+					tmpHitObj = true;
+					if (t > 0.0f && t_min > t)
+					{
+						t_min = t;
+						hit_geom_index = i;
+						intersect_point = tmp_intersect;
+						normal = tmp_normal;
+						uv = tmp_uv;
+						hitObj = tmpHitObj;
+						tangent = tmp_tangent;
+					}
+#else
 					for (int j = 0; j < geom.numTris; j++) {
 						t = triangleIntersectionTest(&geom, &geom.device_tris[j], pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_tangent, outside);
 						tmpHitObj = true;
@@ -604,6 +682,7 @@ __global__ void computeIntersectionsSAR(
 							tangent = tmp_tangent;
 						}
 					}
+#endif
 				}
 			}
 			if (t > 0.0f && t_min > t)
@@ -674,17 +753,6 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
 			}
 			image[iterationPath.pixelIndex2] += resultColor;
 		}
-	}
-}
-
-__global__ void finalGatherTest(int nPaths, glm::vec3* image, PathSegment* iterationPaths, float maxRange)
-{
-	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-
-	if (index < nPaths)
-	{
-		PathSegment iterationPath = iterationPaths[index];
-		image[iterationPath.pixelIndex] += glm::vec3(maxRange/32.f);
 	}
 }
 
@@ -804,8 +872,8 @@ __global__ void kernComputeShadeSAR(
 					}
 					//pathSegments[idx].color2 += glm::vec3(u01(rng) * 0.1f);    //noise
 					pathSegments[idx].length2 = (intersection.t + t_cam + pathSegments[idx].length1) / 2.f;
-					pathSegments[idx].pixelIndexX2 = (pixelIdxX + pathSegments[idx].pixelIndexX) / 2;
-					pathSegments[idx].pixelIndexY2 = (pixelIdxY + pathSegments[idx].pixelIndexY) / 2;
+					/*pathSegments[idx].pixelIndexX2 = (pixelIdxX + pathSegments[idx].pixelIndexX) / 2;
+					pathSegments[idx].pixelIndexY2 = (pixelIdxY + pathSegments[idx].pixelIndexY) / 2;*/
 					pathSegments[idx].depth = 2;
 					/*pathSegments[idx].pixelIndex2 = pathSegments[idx].pixelIndexX2 + (pathSegments[idx].pixelIndexY2 * cam.resolution.x);*/
 					
@@ -1037,6 +1105,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 		// tracing
 		dim3 numblocksPathSegmentTracing = (currNumPaths + blockSize1d - 1) / blockSize1d;
 
+		printf("INTERSECT---------------------------------------------\n");
 		computeIntersectionsSAR << <numblocksPathSegmentTracing, blockSize1d >> > (
 			depth
 			, currNumPaths
@@ -1044,9 +1113,22 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 			, dev_geoms
 			, hst_scene->geoms.size()
 			, dev_intersections
+			, dev_kdtrees
+			//, dev_textureObjs
+			//, dev_textures
 			);
 		checkCUDAError("trace one bounce");
-
+		//computeIntersections << <numblocksPathSegmentTracing, blockSize1d >> > (
+		//	depth
+		//	, currNumPaths
+		//	, dev_paths
+		//	, dev_geoms
+		//	, hst_scene->geoms.size()
+		//	, dev_intersections
+		//	, dev_kdtrees
+		//	);
+		checkCUDAError("trace one bounce");
+//#endif
 		cudaDeviceSynchronize();
 
 		// TODO:
@@ -1082,6 +1164,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 				, dev_geoms
 				, hst_scene->geoms.size()
 				, dev_intersections
+				, dev_kdtrees
 				);
 		}
 		
@@ -1125,6 +1208,10 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 		}
 	}
 
+#if PERF_ANALYSIS
+	cudaEventRecord(endEvent);
+	cudaEventSynchronize(endEvent);
+#endif
 
 	kernUpdateLength << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths);
 	//calculate maxRange and minRange to form image in azimuth-range plane

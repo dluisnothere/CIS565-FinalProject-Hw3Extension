@@ -8,6 +8,7 @@
 #include "stb_image_write.h"
 #include <glm/gtx/vector_angle.hpp>
 
+int MAXDEPTH = 2;
 #define TINYGLTF_IMPLEMENTATION
 //#define STB_IMAGE_IMPLEMENTATION
 //#define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -52,6 +53,7 @@ Scene::Scene(string filename) {
             }
         }
     }
+    constructKDTrees();
 }
 
 void Scene::processGLTFNode(const tinygltf::Model& model, const tinygltf::Node& gltf_node, const glm::mat4& parent_matrix, std::vector<Geom>* geoms)
@@ -616,7 +618,8 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
     }
 
     for (int i = 0; i < gltfGeoms.size(); i++) {
-        geoms.push_back(gltfGeoms[i]);
+        kdtree_indices.push_back(geoms.size());
+        geoms.push_back(gltfGeoms[i]);       
     }
 
     for (int i = 0; i < gltfMaterials.size(); i++) {
@@ -897,7 +900,9 @@ int Scene::loadGeom(string objectid) {
                 newGeom.host_tris[i] = triangleArray[i];
             }
 
+            int gltf_idx = geoms.size();
             geoms.push_back(newGeom);
+            kdtree_indices.push_back(gltf_idx);
 
 #else 
             // create geoms from triangles using newGeom properties
@@ -930,74 +935,74 @@ int Scene::loadGeom(string objectid) {
             //std::vector<Triangle> triangleArray;
             loadGltf(objFileName, &newGeom, &materials[newGeom.materialid]/*, &triangleArray, &geoms*/ ); // transforms are set in here.
 
-#if USE_BOUND_BOX
-            /*float xMin = FLT_MAX;
-            float yMin = FLT_MAX;
-            float zMin = FLT_MAX;
-            float xMax = FLT_MIN;
-            float yMax = FLT_MIN;
-            float zMax = FLT_MIN;*/
-
-            /*for (int i = 0; i < triangleArray.size(); i++) {
-                // jank code to find the min and max of the box
-                Triangle tri = triangleArray[i];
-
-                xMin = fmin(fmin(tri.pointA.pos[0], tri.pointB.pos[0]), fmin(tri.pointC.pos[0], xMin));
-                xMax = fmax(fmax(tri.pointA.pos[0], tri.pointB.pos[0]), fmax(tri.pointC.pos[0], xMax));
-
-                yMin = fmin(fmin(tri.pointA.pos[1], tri.pointB.pos[1]), fmin(tri.pointC.pos[1], yMin));
-                yMax = fmax(fmax(tri.pointA.pos[1], tri.pointB.pos[1]), fmax(tri.pointC.pos[1], yMax));
-
-                zMin = fmin(fmin(tri.pointA.pos[2], tri.pointB.pos[2]), fmin(tri.pointC.pos[2], zMin));
-                zMax = fmax(fmax(tri.pointA.pos[2], tri.pointB.pos[2]), fmax(tri.pointC.pos[2], zMax));
-            }
-
-            BoundBox box = {
-                glm::vec3(xMin, yMin, zMin),
-                glm::vec3(xMax, yMax, zMax)
-            };*/
-
-            //cout << "xMin: " << xMin << " , " << yMin << " , " << zMin << endl;
-            //cout << "xMax: " << xMax << " , " << yMax << " , " << zMax << endl;
-
-
-            //newGeom.host_tris = new Triangle[triangleArray.size()];//triangleArray.size()];
-            //newGeom.device_tris = NULL;
-            //newGeom.numTris = triangleArray.size();
-
-            //newGeom.bound = box;
-            /*for (int i = 0; i < triangleArray.size(); i++) {
-                newGeom.host_tris[i] = triangleArray[i];
-            }*/
-
-            /*geoms.push_back(newGeom);*/
-
-#else 
-            // create geoms from triangles using newGeom properties
-            // load triangles into the geoms scene.
-            for (int i = 0; i < triangleArray.size(); i++) {
-                // there should only be 1 triangle
-                Triangle* trisInGeom = new Triangle(triangleArray[i]);
-
-                // just a single triangle
-                Geom newTriGeom = {
-                    TRIANGLE,
-                    newGeom.materialid,
-                    newGeom.translation,
-                    newGeom.rotation,
-                    newGeom.scale,
-                    newGeom.transform,
-                    newGeom.inverseTransform,
-                    newGeom.invTranspose,
-                    trisInGeom,
-                    NULL, // device pointer is not yet allocated
-                    BoundBox {
-                        },
-                    1,
-                };
-                geoms.push_back(newTriGeom);
-            }
-#endif
+//#if USE_BOUND_BOX
+//            /*float xMin = FLT_MAX;
+//            float yMin = FLT_MAX;
+//            float zMin = FLT_MAX;
+//            float xMax = FLT_MIN;
+//            float yMax = FLT_MIN;
+//            float zMax = FLT_MIN;*/
+//
+//            /*for (int i = 0; i < triangleArray.size(); i++) {
+//                // jank code to find the min and max of the box
+//                Triangle tri = triangleArray[i];
+//
+//                xMin = fmin(fmin(tri.pointA.pos[0], tri.pointB.pos[0]), fmin(tri.pointC.pos[0], xMin));
+//                xMax = fmax(fmax(tri.pointA.pos[0], tri.pointB.pos[0]), fmax(tri.pointC.pos[0], xMax));
+//
+//                yMin = fmin(fmin(tri.pointA.pos[1], tri.pointB.pos[1]), fmin(tri.pointC.pos[1], yMin));
+//                yMax = fmax(fmax(tri.pointA.pos[1], tri.pointB.pos[1]), fmax(tri.pointC.pos[1], yMax));
+//
+//                zMin = fmin(fmin(tri.pointA.pos[2], tri.pointB.pos[2]), fmin(tri.pointC.pos[2], zMin));
+//                zMax = fmax(fmax(tri.pointA.pos[2], tri.pointB.pos[2]), fmax(tri.pointC.pos[2], zMax));
+//            }
+//
+//            BoundBox box = {
+//                glm::vec3(xMin, yMin, zMin),
+//                glm::vec3(xMax, yMax, zMax)
+//            };*/
+//
+//            //cout << "xMin: " << xMin << " , " << yMin << " , " << zMin << endl;
+//            //cout << "xMax: " << xMax << " , " << yMax << " , " << zMax << endl;
+//
+//
+//            //newGeom.host_tris = new Triangle[triangleArray.size()];//triangleArray.size()];
+//            //newGeom.device_tris = NULL;
+//            //newGeom.numTris = triangleArray.size();
+//
+//            //newGeom.bound = box;
+//            /*for (int i = 0; i < triangleArray.size(); i++) {
+//                newGeom.host_tris[i] = triangleArray[i];
+//            }*/
+//
+//            /*geoms.push_back(newGeom);*/
+//
+//#else 
+//            // create geoms from triangles using newGeom properties
+//            // load triangles into the geoms scene.
+//            for (int i = 0; i < triangleArray.size(); i++) {
+//                // there should only be 1 triangle
+//                Triangle* trisInGeom = new Triangle(triangleArray[i]);
+//
+//                // just a single triangle
+//                Geom newTriGeom = {
+//                    TRIANGLE,
+//                    newGeom.materialid,
+//                    newGeom.translation,
+//                    newGeom.rotation,
+//                    newGeom.scale,
+//                    newGeom.transform,
+//                    newGeom.inverseTransform,
+//                    newGeom.invTranspose,
+//                    trisInGeom,
+//                    NULL, // device pointer is not yet allocated
+//                    BoundBox {
+//                        },
+//                    1,
+//                };
+//                geoms.push_back(newTriGeom);
+//            }
+//#endif
         }
         else {
             if (newGeom.materialid == 0)
@@ -1292,4 +1297,256 @@ int Scene::loadTexture(string textureid) {
 
     textures.push_back(newTexture);
     return 1;
+}
+
+static int counterForTri = 0;
+bool Scene::triCompare(Triangle t1, Triangle t2, int index) {
+    float t1_min = fmin(fmin(t1.pointA.pos[index], t1.pointB.pos[index]), t1.pointC.pos[index]);
+    float t2_min = fmin(fmin(t2.pointA.pos[index], t2.pointB.pos[index]), t2.pointC.pos[index]);
+
+    float t1_max = fmax(fmax(t1.pointA.pos[index], t1.pointB.pos[index]), t1.pointC.pos[index]);
+    float t2_max = fmax(fmax(t2.pointA.pos[index], t2.pointB.pos[index]), t2.pointC.pos[index]);
+
+    //printf("min %f max %f count: %d\n", t2_min, t2_max, counterForTri);
+    //counterForTri++;
+    if (t2_min > t1_min) {
+        return true;
+    }
+    if (t2_max <= t2_max) {
+        return false;
+    }
+
+    /*if (0 > t1_min) {
+        return true;
+    }
+    if (0 <= t2_max) {
+        return false;
+    }*/
+
+    
+
+    //If neither are true then just take an avg
+    float t1_avg = (t1.pointA.pos[index] + t1.pointB.pos[index] + t1.pointC.pos[index]) / 3.f;
+    float t2_avg = (t2.pointA.pos[index] + t2.pointB.pos[index] + t2.pointC.pos[index]) / 3.f;
+
+    if (t2_avg > t1_avg) {
+        return true;
+    }
+    return false;
+}
+
+glm::vec3 Scene::triMin(Triangle t) {
+    return glm::vec3(fmin(t.pointA.pos.x, fmin(t.pointB.pos.x, t.pointC.pos.x)),
+                     fmin(t.pointA.pos.y, fmin(t.pointB.pos.y, t.pointC.pos.y)),
+                     fmin(t.pointA.pos.z, fmin(t.pointB.pos.z, t.pointC.pos.z)));
+}
+glm::vec3 Scene::triMax(Triangle t) {
+    return glm::vec3(fmax(t.pointA.pos.x, fmax(t.pointB.pos.x, t.pointC.pos.x)),
+                     fmax(t.pointA.pos.y, fmax(t.pointB.pos.y, t.pointC.pos.y)),
+                     fmax(t.pointA.pos.z, fmax(t.pointB.pos.z, t.pointC.pos.z)));
+}
+
+BoundBox Scene::buildBound(BoundBox box, Triangle t1, Triangle t2, int index, bool useNear) {
+    BoundBox new_box = box;
+    if (useNear) {
+        float t1_max = fmax(fmax(t1.pointA.pos[index], t1.pointB.pos[index]), t1.pointC.pos[index]);
+        float t2_max = fmax(fmax(t2.pointA.pos[index], t2.pointB.pos[index]), t2.pointC.pos[index]);
+        float max = fmax(t1_max, t2_max);
+        new_box.maxCorner[index] = max;
+    }
+    else {
+        float t1_min = fmin(fmin(t1.pointA.pos[index], t1.pointB.pos[index]), t1.pointC.pos[index]);
+        float t2_min = fmin(fmin(t2.pointA.pos[index], t2.pointB.pos[index]), t2.pointC.pos[index]);
+        float min = fmin(t1_min, t2_min);
+        new_box.minCorner[index] = min;
+    }
+    return new_box;
+}
+
+void Scene::buildBounds(Triangle* tri_arr, int parent, glm::vec3& min, glm::vec3& max) {
+    KDNode& node = vec_kdnode[parent];
+
+    glm::vec3 local_min = triMin(tri_arr[node.trisIndex]);
+    glm::vec3 local_max = triMax(tri_arr[node.trisIndex]);
+
+#if USE_KD_VEC
+    for (int i = 0; i < vec_kdnode[parent].tempBuffer.size(); i++) { //KD_DEBUG
+        glm::vec3 vec_min = triMin(tri_arr[vec_kdnode[parent].tempBuffer[i]]);
+        glm::vec3 vec_max = triMax(tri_arr[vec_kdnode[parent].tempBuffer[i]]);
+        local_min = glm::vec3(fmin(local_min.x, vec_min.x),
+            fmin(local_min.y, vec_min.y),
+            fmin(local_min.z, vec_min.z));
+        local_max = glm::vec3(fmax(local_max.x, vec_max.x),
+            fmax(local_max.y, vec_max.y),
+            fmax(local_max.z, vec_max.z));
+        //std::cout << local_min.x << " " << std::endl;
+        //std::cout << local_max.x << std::endl;
+    }
+#endif
+    //minCorner	{x=-0.0212809108 y=-4.77385511e-05 z=-0.0138090001 ...}	
+    //maxCorner{ x = 0.0212809108 y = 0.0628480613 z = 0.0138090011 ... }	
+            //printf("min-------------\n");
+        //printf("x %f y %f z %f\n", local_min.x, local_min.y, local_min.z);
+        //printf("x %f y %f z %f\n", child_min.x, child_min.y, child_min.z);
+        //printf("x %f y %f z %f\n", fmin(local_min.x, child_min.x), fmin(local_min.y, child_min.y), fmin(local_min.z, child_min.z));
+        //printf("max-------------\n");
+        //printf("x %f y %f z %f\n", local_max.x, local_max.y, local_max.z);
+        //printf("x %f y %f z %f\n", child_max.x, child_max.y, child_max.z);
+        //printf("x %f y %f z %f\n", fmax(local_max.x, child_max.x), fmax(local_max.y, child_max.y), fmax(local_max.z, child_max.z));
+    glm::vec3 child_min = local_min;
+    glm::vec3 child_max = local_max;
+
+    if (node.near_node != -1) {
+        buildBounds(tri_arr, node.near_node, child_min, child_max);
+        local_min = glm::vec3(fmin(local_min.x, child_min.x), 
+            fmin(local_min.y, child_min.y), 
+            fmin(local_min.z, child_min.z));
+        local_max = glm::vec3(fmax(local_max.x, child_max.x),
+            fmax(local_max.y, child_max.y),
+            fmax(local_max.z, child_max.z));
+    }
+    if (node.far_node != -1) {
+        buildBounds(tri_arr, node.far_node, child_min, child_max);
+
+        local_min = glm::vec3(fmin(local_min.x, child_min.x),
+            fmin(local_min.y, child_min.y),
+            fmin(local_min.z, child_min.z));
+        local_max = glm::vec3(fmax(local_max.x, child_max.x),
+            fmax(local_max.y, child_max.y),
+            fmax(local_max.z, child_max.z));
+    }
+
+    vec_kdnode[parent].bound.minCorner = local_min;
+    vec_kdnode[parent].bound.maxCorner = local_max;
+
+    //minCorner	{x=-0.0212809108 y=-4.77385511e-05 z=-0.0138090001 ...}	
+    //maxCorner{ x = 0.0212809108 y = 0.0628480613 z = 0.0138090011 ... }
+    min = local_min;
+    max = local_max;
+}
+
+void Scene::createNode(int node_idx, int tri_idx, int parent_idx, BoundBox bound, KDSPLIT split, parentRelation rel, int depth) {
+    vec_kdnode[node_idx].bound = bound;
+    vec_kdnode[node_idx].trisIndex = tri_idx;
+    vec_kdnode[node_idx].near_node = -1;
+    vec_kdnode[node_idx].far_node = -1;
+    vec_kdnode[node_idx].split = split;
+    vec_kdnode[node_idx].parent_node = parent_idx;
+    vec_kdnode[node_idx].relation = rel;
+
+    vec_kdnode[node_idx].depth = depth;
+#if USE_KD_VEC
+    vec_kdnode[node_idx].tempBuffer.push_back(tri_idx); //KD_DEBUG
+#endif
+}
+
+void Scene::pushdown(Triangle* tri_arr, int parent, BoundBox bound, int tri_idx) {
+
+
+    KDNode& node = vec_kdnode[parent];
+    KDSPLIT parent_split = node.split;
+    int parent_tri_idx = vec_kdnode[parent].trisIndex;
+
+#if USE_KD_VEC
+    if (node.depth == MAXDEPTH) {
+        vec_kdnode[parent].tempBuffer.push_back(tri_idx); //KD_DEBUG
+        return;
+    }
+#endif
+
+    Triangle& parent_tri = tri_arr[parent_tri_idx];
+    Triangle& new_tri = tri_arr[tri_idx];
+    //std::cout << tri_arr[tri_idx].pointA.pos[0] << std::endl;
+
+    //Comparing the two triangles, deciding which subtree to go down
+    bool useNear;
+    if (parent_split == X) {
+        useNear = triCompare(new_tri, parent_tri, 0);
+    } 
+    else if (parent_split == Y) {
+        useNear = triCompare(new_tri, parent_tri, 1);
+    }
+    else {
+        useNear = triCompare(new_tri, parent_tri, 2);
+    }
+
+    //Actually pushing down the correct subtree, if it exists
+    if (useNear) {
+        if (node.near_node >= 0) {
+            pushdown(tri_arr, node.near_node, vec_kdnode[node.near_node].bound, tri_idx);
+            return;
+        }
+    }
+    else {
+        if (node.far_node >= 0) {
+            pushdown(tri_arr, node.far_node, vec_kdnode[node.far_node].bound, tri_idx);
+            return;
+        }
+    }
+
+    //If we are here then we need to create a new node
+    //This determines the new split X-->Y-->Z-->-->X etc.
+    //This is also used to determine how new bounding boxes are constructed/partitioned
+    KDSPLIT child_split;
+    BoundBox new_bound = bound;
+    if (parent_split == X) {
+        child_split = Y;
+        new_bound = buildBound(bound, new_tri, parent_tri, 0, useNear);
+    }
+    else if (parent_split == Y) {
+        child_split = Z;
+        new_bound = buildBound(bound, new_tri, parent_tri, 1, useNear);
+    }
+    else {
+        child_split = X;
+        new_bound = buildBound(bound, new_tri, parent_tri, 2, useNear);
+    }
+
+    new_bound = bound; //KD_DEBUG
+
+    //New Node pushed to vec
+    int node_idx = vec_kdnode.size();
+    int currentDepth = node.depth;
+    vec_kdnode.push_back(KDNode());
+    
+    if (useNear) {
+        createNode(node_idx, tri_idx, parent, new_bound, child_split, LEFT, currentDepth + 1);
+        vec_kdnode[parent].near_node = node_idx;
+    }
+    else {
+        createNode(node_idx, tri_idx, parent, new_bound, child_split, RIGHT, currentDepth + 1);
+        vec_kdnode[parent].far_node = node_idx;
+    }
+}
+
+void Scene::constructKDTrees() {
+    vec_kdnode.clear();
+    for (int i = 0; i < kdtree_indices.size(); i++) {
+        int idx = kdtree_indices[i];
+
+        Geom* ref = &geoms[idx];
+        
+        ref->root = vec_kdnode.size();
+        vec_kdnode.push_back(KDNode());
+        Triangle* tri_arr = ref->host_tris;
+        if (ref->numTris >= 1) {
+            createNode(ref->root, 0, -1, ref->bound, X, ROOT, 0);
+        }
+
+        for (int j = 1; j < ref->numTris; j++) {
+            pushdown(tri_arr, ref->root, ref->bound, j);
+            /*if (vec_kdnode[j].trisIndex != j) {
+                printf("BUG: %d %d\n", j, vec_kdnode[j].trisIndex);
+            }*/
+        }
+        glm::vec3 minCorn;
+        glm::vec3 maxCorn;
+        buildBounds(tri_arr, ref->root, minCorn, maxCorn);
+        printf("Root %d established\n", ref->root);
+    }
+#if USE_KD_VEC
+    for (int i = 0; i < vec_kdnode.size(); i++) {
+        vec_kdnode[i].numIndices = vec_kdnode[i].tempBuffer.size();
+    }
+#endif
 }
