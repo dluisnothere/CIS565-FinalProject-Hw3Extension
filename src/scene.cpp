@@ -248,13 +248,12 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
 
         gltfMaterials.push_back(newMaterial);
 
-        //gltfMatIdx++;
     }
     //
     // Meshes
     //
 
-    int maxTexCoord = 0;
+    int maxTexCoord = -1;
 
     std::vector<Geom> gltfGeoms = std::vector<Geom>();
     int gltfGeomIdx = 0;
@@ -483,26 +482,37 @@ int Scene::loadGltf(std::string filename, Geom* transformGeom,/*std::vector<Tria
                 std::vector<glm::vec2> cUvList = std::vector<glm::vec2>();
                 std::vector<int> cTexCoord = std::vector<int>();
 
-                for (int j = 0; j <= maxTexCoord; j++) {
+                if (maxTexCoord > -1) {
+                    for (int j = 0; j <= maxTexCoord; j++) {
 
-                    float2 ua = tmpUvs[j][aIdx];
-                    float2 ub = tmpUvs[j][bIdx];
-                    float2 uc = tmpUvs[j][cIdx];
+                        float2 ua = tmpUvs[j][aIdx];
+                        float2 ub = tmpUvs[j][bIdx];
+                        float2 uc = tmpUvs[j][cIdx];
 
-                    const glm::vec2 aUv = glm::vec2(ua.x, ua.y);
-                    const glm::vec2 bUv = glm::vec2(ub.x, ub.y);
-                    const glm::vec2 cUv = glm::vec2(uc.x, uc.y);
+                        const glm::vec2 aUv = glm::vec2(ua.x, ua.y);
+                        const glm::vec2 bUv = glm::vec2(ub.x, ub.y);
+                        const glm::vec2 cUv = glm::vec2(uc.x, uc.y);
 
-                    //// separate uvs from everything else bc it's a different process.
+                        //// separate uvs from everything else bc it's a different process.
 
-                    aUvList.push_back(aUv);
-                    aTexCoord.push_back(j);
+                        aUvList.push_back(aUv);
+                        aTexCoord.push_back(j);
 
-                    bUvList.push_back(bUv);
-                    bTexCoord.push_back(j);
+                        bUvList.push_back(bUv);
+                        bTexCoord.push_back(j);
 
-                    cUvList.push_back(cUv);
-                    cTexCoord.push_back(j);
+                        cUvList.push_back(cUv);
+                        cTexCoord.push_back(j);
+                    }
+                }
+                else {
+                    // add only 1 dummy uv to the list
+                    aUvList.push_back(glm::vec2(-1.f, -1.f));
+                    aTexCoord.push_back(-1);
+                    bUvList.push_back(glm::vec2(-1.f, -1.f));
+                    bTexCoord.push_back(-1);
+                    cUvList.push_back(glm::vec2(-1.f, -1.f));
+                    cTexCoord.push_back(-1);
                 }
 
                 //// separate Uvs from everything else

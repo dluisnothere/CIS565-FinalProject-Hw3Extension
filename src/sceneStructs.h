@@ -11,7 +11,6 @@
 #define LOAD_GLTF 1
 #define LOAD_OBJ 1
 #define USE_BOUND_BOX 1
-#define USE_UV 1
 #define USE_PROCEDURAL_TEXTURE 0 // cannot be on at the same time as USE_UV
 #define BUMP_MAP 0
 
@@ -229,6 +228,6 @@ struct ShadeableIntersection {
     glm::vec3 surfaceNormal;
     int materialId;
     int textureId = -1;
-    glm::vec2 uv;
+    glm::vec2 uv = glm::vec2(-1.f, -1.f); // set to -1 -1 by default
     bool hasHitObj = false;
 };
