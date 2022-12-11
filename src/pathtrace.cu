@@ -11,6 +11,7 @@
 #include <thrust/device_vector.h>
 #include <iostream>
 #include <glm/gtc/matrix_inverse.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "sceneStructs.h"
 #include "scene.h"
@@ -1082,9 +1083,18 @@ __global__ void kernComputeShadeSAR(
 					pathSegments[idx].color = glm::vec3(0.f);
 				}
 
+				//test
+				//float tempColor = (intersection.t - 6.649019f) / (9.913589f - 6.649019f);
+				//pathSegments[idx].color = glm::vec3(tempColor);
+				//if (tempColor < 0.03f) {
+				//	glm::vec3 intersectionPoint = pathSegments[idx].ray.origin + intersection.t * glm::normalize(pathSegments[idx].ray.direction);
+				//	printf("%f, %f, %f\n%f, %f, %f\n", intersectionPoint.x, intersectionPoint.y, intersectionPoint.z, intersection.surfaceNormal.x, intersection.surfaceNormal.y, intersection.surfaceNormal.z);
+				//}
+
 				//update ray
 				pathSegments[idx].ray.origin = pathSegments[idx].ray.origin + intersection.t * glm::normalize(pathSegments[idx].ray.direction) + 0.001f * N;
 				pathSegments[idx].ray.direction = V;
+
 			}
 			else if (depth == 2) {
 				//test focusing ray with camera plane
@@ -1107,7 +1117,7 @@ __global__ void kernComputeShadeSAR(
 					pathSegments[idx].pixelIndexX2 = (pixelIdxX + pathSegments[idx].pixelIndexX) / 2;
 					pathSegments[idx].pixelIndexY2 = (pixelIdxY + pathSegments[idx].pixelIndexY) / 2;
 					pathSegments[idx].depth = 2;
-					pathSegments[idx].pixelIndex2 = pathSegments[idx].pixelIndexX2 + (pathSegments[idx].pixelIndexY2 * cam.resolution.x);
+					/*pathSegments[idx].pixelIndex2 = pathSegments[idx].pixelIndexX2 + (pathSegments[idx].pixelIndexY2 * cam.resolution.x);*/
 					
 					//update Ray
 					pathSegments[idx].ray.origin = focusingRayOri;
@@ -1196,7 +1206,7 @@ __global__ void kernUpdateLength(int num_paths, PathSegment* paths) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx < num_paths) {
 		PathSegment& pathSegment = paths[idx];
-		if (pathSegment.length3 > 0.f) {
+		/*if (pathSegment.length3 > 0.f) {
 			pathSegment.length = pathSegment.length3;
 		}
 		else {
@@ -1206,7 +1216,8 @@ __global__ void kernUpdateLength(int num_paths, PathSegment* paths) {
 			else {
 				pathSegment.length = pathSegment.length1;
 			}
-		}
+		}*/
+		pathSegment.length = pathSegment.length1;
 	}
 }
 
@@ -1514,6 +1525,22 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 	cudaMalloc(&dev_camera, sizeof(Camera));
 	cudaMemcpy(dev_camera, &(hst_scene->state.camera), sizeof(Scene), cudaMemcpyHostToDevice);*/
 	//so the problem is, eye is wrong, lookAt is correct, view is normalize(lookAt - eye), but since eye is wrong, view is wrong.
+
+	//glm::mat4 rot;
+	//if (glm::vec3(0, 0, -1) == cam.view) {
+	//	rot = glm::mat4(1.f);
+	//}
+	//else {
+	//	glm::vec3 rotAxis = glm::cross(glm::vec3(0, 0, -1), cam.view);
+	//	float angRad = glm::angle(glm::vec3(0, 0, -1), cam.view);
+	//	rot = glm::rotate(glm::mat4(1.f), angRad, rotAxis);
+	//}
+	//glm::mat4 translation = glm::translate(glm::mat4(1.f), glm::vec3(cam.position));
+	////the size of camera is determined by xscaled and yscaled, camera is by default 1 in front of the eye.
+	//glm::mat4 scale = glm::scale(glm::vec3(cam.xscaled, cam.yscaled, 1.f)); //1, 1, 1
+	//glm::mat4 trans = translation * rot * scale;
+	//glm::mat4 invTrans = glm::inverse(trans);  //transform to camera space
+
 	cout << "eye" << endl;
 	cout << hst_scene->state.camera.position.x << endl; //0
 	cout << hst_scene->state.camera.position.y << endl; //2.5
@@ -1735,16 +1762,10 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
 	printf("maxRange: %f \n", host_maxRange.length);
 	
 	for (int i = 1; i <= traceDepth; ++i) {
-		if (i == 2) {
-			continue;
-		}
-		kernTransToAzimuthRange << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths, host_maxRange.length, host_minRange.length, cam.resolution.x, cam.resolution.y, i);
+		//kernTransToAzimuthRange << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths, host_maxRange.length, host_minRange.length, cam.resolution.x, cam.resolution.y, i);
 	}
 
 	for (int i = 1; i <= traceDepth; ++i) {
-		if (i == 2) {
-			continue;
-		}
 		finalGather << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_paths, i, cam);
 	}
 

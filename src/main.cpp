@@ -5,6 +5,7 @@
 #include "preview.h"
 #include <cstring>
 #include <glm/gtc/matrix_inverse.hpp>
+#include <glm/gtx/vector_angle.hpp>
 
 static std::string startTimeString;
 
@@ -410,6 +411,27 @@ void runCuda() {
 		cameraPosition += cam.lookAt;
 		cam.position = cameraPosition;
 		camchanged = false;
+		
+		//we assume camera's default plane's normal was point in -z, lay on x-y plane, with
+		//size 2x2, located at the center.(thus, 4 points are (1, 1), (1, -1), (-1, 1), (-1, -1))
+		//first create a vector orthogonal to both vectors
+		glm::mat4 rot;
+		float yscaled = tan(cam.fov.y * (PI / 180));
+		float xscaled = (yscaled * cam.resolution.x) / cam.resolution.y;
+		if (glm::vec3(0, 0, -1) == cam.view) {
+			rot = glm::mat4(1.f);
+		}
+		else {
+			glm::vec3 rotAxis = glm::cross(glm::vec3(0, 0, -1), cam.view);
+			float angRad = glm::angle(glm::vec3(0, 0, -1), cam.view);
+			rot = glm::rotate(glm::mat4(1.f), angRad, rotAxis);
+		}
+		glm::mat4 translation = glm::translate(glm::mat4(1.0), glm::vec3(cam.position));
+		//the size of camera is determined by xscaled and yscaled, camera is by default 1 in front of the eye.
+		glm::mat4 scale = glm::scale(glm::vec3(xscaled, yscaled, 1.f)); //1, 1, 1
+		glm::mat4 trans = translation * rot * scale;
+		cam.transform = trans;  //transform to global space
+		cam.inverseTransform = glm::inverse(trans);  //transform to camera space
 	}
 
 	// Map OpenGL buffer object for writing from CUDA on a single GPU

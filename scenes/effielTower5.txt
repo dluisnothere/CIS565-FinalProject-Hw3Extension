@@ -95,15 +95,15 @@ FOVY        45
 ITERATIONS  1
 DEPTH       2
 FILE        cornell
-EYE         2.83013 6.2536 2.83013
-LOOKAT      0 0.25 0
+EYE         2.7 14 2.7
+LOOKAT      0 0.6 0
 UP          0 1 0
 
 // Floor
 OBJECT 0
 cube
 material 1
-TRANS       0 -1 0
+TRANS       0 -1.5 0
 ROTAT       0 0 0
 SCALE       100 .01 100
 
@@ -113,4 +113,4 @@ OBJECT 1
 material 8
 TRANS		0 0 0
 ROTAT	      0 0 0
-SCALE		0.03 0.03 0.03
+SCALE		0.025 0.047 0.025
