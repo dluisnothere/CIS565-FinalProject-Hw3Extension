@@ -31,7 +31,7 @@
 #define DEPTH_OF_FIELD 0 // depth of field focus defined later
 #define DIRECT_LIGHTING 0
 #define PERF_ANALYSIS 0
-#define USE_KD 1
+#define USE_KD 0
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -312,7 +312,7 @@ void pathtraceFree() {
 	cudaMemcpy(tmp_geom_pointer, dev_geoms, numG * sizeof(Geom), cudaMemcpyDeviceToHost);
 	for (int i = 0; i < numGeoms; i++) {
 		if (tmp_geom_pointer[i].type == OBJ || tmp_geom_pointer[i].type == GLTF) {
-			int numTris = tmp_geom_pointer->numTris;
+			int numTris = tmp_geom_pointer[i].numTris;
 			Triangle* tmp_tri_pointer = new Triangle[numTris];
 			cudaMemcpy(tmp_tri_pointer, tmp_geom_pointer[i].device_tris, numTris * sizeof(Geom), cudaMemcpyDeviceToHost);
 			checkCUDAError("cudaMemcpy tmp_tri_pointer failed");
