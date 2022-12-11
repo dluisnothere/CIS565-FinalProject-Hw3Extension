@@ -30,7 +30,7 @@
 #define ORTHOGRAPHIC 1
 #define SARNAIVE 1
 #define PERF_ANALYSIS 0
-#define USE_KD 1
+#define USE_KD 0
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -814,6 +814,8 @@ __global__ void kernComputeShadeSAR(
 	, float ui_specularReflection
 	, float ui_roughnessFactor
 	, float ui_surfaceBrilliance
+	, cudaTextureObject_t* textureObjs
+	, int* numChannels
 )
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -827,13 +829,15 @@ __global__ void kernComputeShadeSAR(
 				pathSegments[idx].remainingBounces = 0;
 				return;
 			}*/
+
 			thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, 0);
 			thrust::uniform_real_distribution<float> u01(0, 1);
 
-			float Fd = ui_diffuseReflection;//0.2f;
-			float Fb = ui_surfaceBrilliance;//0.3f;
-			float Fs = ui_specularReflection;//0.6f;
-			float Fr = ui_roughnessFactor;//0.3f;
+			float Fd = ui_diffuseReflection;		//0.2f;
+			float Fb = ui_surfaceBrilliance;		//0.3f;
+			float Fs = ui_specularReflection;		//0.6f;
+			float Fr = ui_roughnessFactor;			//0.3f;
+
 			//Fd: diffuse reflection coefficient [0....1]
 			// material.hasRefractive, REFR
 			//Fb: surface brilliance factor [default value: 1].
@@ -842,6 +846,22 @@ __global__ void kernComputeShadeSAR(
 			// material.hasReflective, REFL
 			//Fr: roughness factor
 			// material.specular.exponent, SPECEX
+
+			if (material.pbrMetallicRoughness.metallicRoughnessOffset >= 0) {
+				int metallicRoughnessTexId = material.pbrMetallicRoughness.metallicRoughnessOffset + material.pbrMetallicRoughness.metallicRoughnessIdx;
+
+				float mu = shadeableIntersections[idx].uv.x;
+				float mv = shadeableIntersections[idx].uv.y;
+
+				//printf("tangent: %f, %f, %f, %f \n", intersection.tangent.x, intersection.tangent.y, intersection.tangent.z, intersection.tangent.w);
+
+				float4 metallicRoughness = tex2D<float4>(textureObjs[metallicRoughnessTexId], mu, mv);
+				float rough = metallicRoughness.y;
+				float metal = metallicRoughness.z;
+
+				Fr *= rough; 
+				Fs *= metal;
+			}
 			
 			glm::vec3 N = glm::normalize(intersection.surfaceNormal);
 			glm::vec3 L = glm::normalize(-pathSegments[idx].ray.direction);
@@ -853,21 +873,12 @@ __global__ void kernComputeShadeSAR(
 				glm::vec3 V = glm::reflect(-L , N);
 				pathSegments[idx].negPriRay = L;
 				pathSegments[idx].color = glm::vec3(resultColor);
-				//pathSegments[idx].color += glm::vec3(u01(rng) * 0.1f);   //noise
 				pathSegments[idx].length1 = intersection.t;
 				pathSegments[idx].primaryLength = intersection.t;
 				pathSegments[idx].depth = 1;
 				if (isnan(pathSegments[idx].color.r)) {
 					pathSegments[idx].color = glm::vec3(0.f);
 				}
-
-				//test
-				//float tempColor = (intersection.t - 6.649019f) / (9.913589f - 6.649019f);
-				//pathSegments[idx].color = glm::vec3(tempColor);
-				//if (tempColor < 0.03f) {
-				//	glm::vec3 intersectionPoint = pathSegments[idx].ray.origin + intersection.t * glm::normalize(pathSegments[idx].ray.direction);
-				//	printf("%f, %f, %f\n%f, %f, %f\n", intersectionPoint.x, intersectionPoint.y, intersectionPoint.z, intersection.surfaceNormal.x, intersection.surfaceNormal.y, intersection.surfaceNormal.z);
-				//}
 
 				//update ray
 				pathSegments[idx].ray.origin = pathSegments[idx].ray.origin + intersection.t * glm::normalize(pathSegments[idx].ray.direction) + 0.001f * N;
@@ -1222,6 +1233,8 @@ void pathtrace(uchar4* pbo, int frame, int iter,
 			ui_specularReflection,
 			ui_roughnessFactor,
 			ui_surfaceBrilliance
+			, dev_textureObjs
+			, dev_textureChannels
 );
 		if (depth > 1) {
 			kernComputeBlockToCameraSAR << <numblocksPathSegmentTracing, blockSize1d >> > (
