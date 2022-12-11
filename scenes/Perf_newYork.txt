@@ -90,27 +90,19 @@ EMITTANCE   0
 
 // Camera
 CAMERA
-RES         500 1000
+RES         800 800
 FOVY        45
 ITERATIONS  20
 DEPTH       2
 FILE        cornell
-EYE         3.5 -5 3.5
-LOOKAT      0 0.25 0
+EYE         5 -5 5
+LOOKAT      0 0 0
 UP          0 1 0
 
-// Floor
-OBJECT 0
-cube
-material 1
-TRANS       0 0 0
-ROTAT       0 0 0
-SCALE       100 .01 100
-
 // texture obj
-OBJECT 1
-../gltfs/eiffel_tower/scene.gltf
+OBJECT 0
+../gltfs/newYork/scene.gltf
 material 8
 TRANS		0 0 0
-ROTAT	      0 0 0
-SCALE		0.03 0.03 0.03
+ROTAT	      0 -180 0
+SCALE		1 1 1
