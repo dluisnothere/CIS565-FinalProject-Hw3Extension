@@ -173,7 +173,7 @@ void createTexture(const Texture &t, int numChannels, int texIdx) {
 }
 
 void pathtraceInit(Scene* scene) {
-	printf("Beginning Memory Alloc");
+	printf("Beginning Memory Alloc\n");
 	hst_scene = scene;
 	//hst_scene->constructKDTrees();
 	numTextures = hst_scene->textures.size();
