@@ -81,6 +81,8 @@ First, we simulate the SAR at orthogonal view. Imagine each column of pixels as 
 
 ![](img/Readme/Beam.png)
 
+_Fig 3. SAR ray simulation in a hypothetical scene_
+
 Second, we convert the orthogonal view image to a project in the azimuth-range plane. The following diagram is a description of what an azimuth-range plane image represents. 
 
 Here, the x-axis represents azimuth (which is equivalent to the trajectory line along which the vehicle is moving). The y-axis represents range, which represents distance relative to the antenna. Each red plot corresponds to a non-black pixel on the final phase history image. If a pixel is non-black, then it means a signal was received back. Its greyscale value represents the strength of that signal.
@@ -88,6 +90,8 @@ Here, the x-axis represents azimuth (which is equivalent to the trajectory line 
 Hence, if there is a black band in the middle of the azimuth-range plane, it means no signal was received by the antenna at that distance away.
 
 ![](img/Readme/rangeAzimuth.png)
+
+_Fig 4. Range Azimuth Diagram, where Azimuth represents the trajecetory of the vehicle, and Range represents distances away from the camera._
 
 Modeling the behavior of materials and SAR rays appears to be a non-trivial task. Based on our research and readings, only diffuse surfaces and specular surfaces have mathematical models developed.
 
