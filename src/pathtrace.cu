@@ -1289,13 +1289,10 @@ void pathtrace(uchar4* pbo, int frame, int iter,
 	printf("maxRange: %f \n", host_maxRange.length);
 
 	for (int i = 1; i <= traceDepth; ++i) {
-		//kernTransToAzimuthRange << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths, host_maxRange.length, host_minRange.length, cam.resolution.x, cam.resolution.y, i);
+		kernTransToAzimuthRange << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths, host_maxRange.length, host_minRange.length, cam.resolution.x, cam.resolution.y, i);
 	}
 
 	for (int i = 1; i <= traceDepth; ++i) {
-		if (i == 1 || i == 2) {
-			continue;
-		}
 		finalGather << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_paths, i, cam);
 	}
 
