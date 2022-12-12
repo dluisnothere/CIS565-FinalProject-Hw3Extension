@@ -24,11 +24,7 @@ Check out the next section for a brief overview on what an SAR is!
 
 Our hope is that this can contribute to the development of more open-source SAR simulators that can be helpful for aircraft/vehicle designers. We also hope that these outputs can be used as easy data-gathering for any AI-based image-recognition for the typically blurry images produced by real SARs.
 
-## Results
-
-|  Current Milestone 3 Progress: ORTHOGONAL VIEW | Current Milestone 3 Progress: AZIMUTH RANGE VIEW  |
-| ----------------- | ----------------- |
-| ![](img/Readme/ms3.png) | ![](img/Readme/ms3Azimuth.png) |
+![](img/result/newYork/newYorkAzimuth.png)
 
 _GLTF CREDITS GO HERE_
 
