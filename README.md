@@ -31,7 +31,7 @@ Our hope is that this can contribute to the development of more open-source SAR 
 | ![](img/result/newYork/newYorkAzimuth.png) | ![](img/result/newYork/newYorkImage.png)  |  
 
 
-| Azimuth-Range view of a skyscraper | Orthogonal view of a skyscraper | Reference View |
+| Azimuth-Range view of a skyscraper | Orthogonal view of a skyscraper | 
 | ------------------ | ----------------- | 
 | ![](img/result/skyscraper/skyscraperAzimuth.png) | ![](img/result/skyscraper/skyscraperImage.png) | 
 
