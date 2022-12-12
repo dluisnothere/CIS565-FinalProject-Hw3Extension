@@ -55,7 +55,7 @@ Traditional Radars capture images by emitting radio waves from an antenna (also 
 
 In order to bypass this issue, a smaller antenna is mounted onto a moving vehicle, and the vehicle takes various snapshots of the same spot of environment over a moving trajectory. This creates the illusion of a larger radar aperture by combining multiple viewpoints, thus producing a larger "Synthetic Aperture".
 
-A real SAR collects data in the following steps (May be difficult to see on github dark mode)
+A real SAR collects data in the following steps:
 
 ![](img/Readme/RealSARFlow2.png)
 
@@ -95,6 +95,10 @@ _Fig 4. Range Azimuth Diagram, where Azimuth represents the trajecetory of the v
 
 Modeling the behavior of materials and SAR rays appears to be a non-trivial task. Based on our research and readings, only diffuse surfaces and specular surfaces have mathematical models developed.
 
+Diffuse Surfaces:
+
+Specular Surfaces: 
+
 ## Scene File Description
 
 The scene files used in this project are laid out as blocks of text in this order: Materials, Textures (if any), and Objects in the scene. Each Object has a description of its translation, scale, and rotation, as well as which material it's using, and if it's a basic shape (such as sphere or cube), then that is also specified. If not a basic shape, then it specifies a path to its obj. If the Object also has a texture, then it will refer to the Id of the texture. Using Ids to keep track of scene attributes prevent over-copying of shared data between Objects.
@@ -128,12 +132,9 @@ Backscatter are radar signals that reflected back to the SAR sensor. signals can
 | --- | ----------------- | ----------------- | ----------------- |
 | ![](img/result/effielTower/effielTowerImageDepth3.png)| ![](img/result/effielTower/effielTowerImageDepth2.png) | ![](img/result/effielTower/effielTowerImageDepth1.png) | ![](img/result/effielTower/effielTowerImage.png) |
 
-### Azimuth Range Plane
-
 ### Acceleration Structures
 
 We are using a kd-tree as a bounding volume hierarchy. A kd-tree is a binary tree where each node is split along one axis-aligned hyperplane. Each node also stores a bounding box and a triangle structure which represents a small piece of a 3d object. The k in a kd tree represents the number of dimensions. So for our uses k is three. The root node is split along the x-axis. The next layer is split along Y, then Z and then X once more etc. In path tracing, we can levrage this data structure by minimizing the number of intersects we need to check for each ray. At any given node, we can check an intersection with the children's bounding boxes, if our given ray does not intersect with a bounding box, we can remove that subtree from consideration. Whenever we intersect a triangle, we can immediately return as well, because we will traverse the tree in order of shortest distance from intersects, meaning the first triangle hit should be the one closest to the ray origin.
-
 
 ![](img/Readme/kdtree.png)
 <br />
@@ -144,6 +145,10 @@ _2 dimensional visualization of a kd-tree_
 Our GUI is implemented using the ImGui library. 
 
 We've included a button to allow the user to load a new scene. We've also included four sliders to modify the four material parameters that impact the backscatter calculation. 
+
+|  Surface Brilliance: 0.0 | Surface Brilliance: 0.3 |
+| ----------------- | ----------------- |
+| ![](img/guiSetting2.png) | ![](img/guiSetting3.png) |
 
 ## Performance Analysis
 
