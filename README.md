@@ -63,9 +63,9 @@ _Fig 1. Logical Flow of how a REAL SAR collects data_
 
 Here is what typical SAR outputs look like:
 
-|   |  |
-| ----------------- | ----------------- |
-| ![](img/RealSAR/City.jpg) | ![](img/RealSAR/Cars.png) |
+![](img/RealSAR/City.jpg)
+
+![](img/RealSAR/Cars.png) 
 
 ### SAR Simulation Research
 
