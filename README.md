@@ -105,6 +105,10 @@ Our project is built on top of a prior homework assignment: CUDA Path Tracer. Th
 
 Our SAR simulator supports scene files, which can contain CUBE shapes, SPHERE shapes, and GLTFs. GLTFs are powerful web-based 3D object descriptors that allow for multiple meshes to be part of the same object. These meshes can be categorized into nodes which describe its location transform. They also allow the object to have multiple texture maps representing its base color, metallic roughness, emission, and more!
 
+|  Azimuth Range view of Spitfire.gltf  | Orthographic Camera of Spitfire.gltf |
+| ----------------- | ----------------- |
+| ![](img/RealSAR/City.jpg) | ![](img/RealSAR/Cars.png) |
+
 ### SAR Wave Simulation
 
 We use the lambertian and specular reflection models to simulate the behavior of radar signal. We give the user the flexibility to adapt the lambertian and specular reflection property of the material to simulate the interaction of EM wave with different materials. 
