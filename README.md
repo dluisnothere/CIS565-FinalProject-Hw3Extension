@@ -124,9 +124,9 @@ We use the lambertian and specular reflection models to simulate the behavior of
 Backscatter are radar signals that reflected back to the SAR sensor. signals can be directly backscatter to the sensor or have multiple bounces before reaching the SAR sensor. The amplitude and the range of the signal are recorded by the sensor in a 3D coordinate of azimuth(moving direction of the antenna), elevation(position of hitted object on the elevation plane) and range(the distance between antenna and the object hitted).
 
 
-| Double Bounce  | Direct Backscatter | Complete image plane |
-| ----------------- | ----------------- | ----------------- |
-| ![](img/Readme/ms3DoubleBounce.png) | ![](img/Readme/ms3DirectBackscatter.png) | ![](img/Readme/ms3.png) |
+| Triple Bounce| Double Bounce  | Direct Backscatter | Complete image plane |
+| --- | ----------------- | ----------------- | ----------------- |
+| ![](img/result/effielTower/effielTowerImageDepth3.png)| ![](img/result/effielTower/effielTowerImageDepth2.png) | ![](img/result/effielTower/effielTowerImageDepth1.png) | ![](img/result/effielTower/effielTowerImage.png) |
 
 ### Azimuth Range Plane
 
@@ -151,17 +151,14 @@ We tested a few scenes with and without the use of a kd tree. The scenes we test
 With lower triangle counts, the kd tree helps very little, though it does contribute to a considerable speed up. However, as the triangle counts get higher, the kd tree is vital in completing execution in an acceptable amount of time. Being over 20 times faster than just using a bounding box!
 
 ## Bloopers! :)
-![blooper1](img/result/bloopers/blooper1.png)   
-Above image was a wrong result of Azimuth-Range transformation.  
+| This image indicates a wrong result of Azimuth-Range transformation for the eiffel tower scene.  | This image was a range image used to debug the Azimuth-Range image on the left. In this image, the range are represent by color from darkest to brightest. We can see that the pixels with highest and lowest ranges both located at the ground while the range with the lowest range should be located at the top of the tower. Upon investigation, we find out that the wrong paramters setting for the camera caused this.   | 
+| ----------------- | ----------------- | 
+| <img src="img/result/bloopers/blooper1.png"> | <img src="img/result/bloopers/blooper2.png" width=45% height=45% align="center"> |
 
-![blooper2](img/result/bloopers/blooper2.png)   
-Above image was a range image used to debug the Azimuth-Range image above. From this image, we can see that the range is highest and lowest both located at the ground while the range with the lowest range should be located at the top of the tower. Upon investigation, we find out that the wrong paramters setting for the camera caused this.  
 
-![blooper3](img/result/bloopers/blooper3.png)  
-Above image has a correct transformation to Azimuth-Range plane, but a wrong minimum range value for the plane. Upon investigation, we find out some pixels that didn't hit any thing by chance, thus wipe out those pixels to get a correct result.  
-
-![blooper4](img/result/bloopers/blooper4.png)  
-Above image showed a wrong double bounce contribution. This results from wrong camera transformation, camera intersection test and pixel index calculation.  
+|This image showed a wrong double bounce contribution because of wrong camera transformation, wrong camera intersection test and wrong pixel index calculation.   | This image has a correct transformation to Azimuth-Range plane, but a wrong minimum range value for the plane. Upon investigation, we find out some pixels that didn't hit any thing by chance, thus wipe out those pixels to get a correct result.   |   
+| ----------------- | ----------------- | 
+|![](img/result/bloopers/blooper4.png)  | ![](img/result/bloopers/blooper3.png)  |
 
 ## References and Related Works
 
