@@ -34,6 +34,10 @@ Our hope is that this can contribute to the development of more open-source SAR 
 | ------------------ | ----------------- |
 | ![](img/result/skyscraper/skyscraperAzimuth.png) | ![](img/result/skyscraper/skyscraperImage.png) |
 
+| Azimuth-Range view of the Eiffel Tower | Orthogonal view of the Eiffel Tower|
+| ------------------ | ----------------- |
+| ![](img/result/skyscraper/effielTowerAzimuth.png) | ![](img/result/skyscraper/effielTowerImage.png) |
+
 _GLTF CREDITS GO HERE_
 
 ## Crash Course: Synthetic Aperture Radar
