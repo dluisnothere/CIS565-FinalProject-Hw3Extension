@@ -137,6 +137,17 @@ We tested a few scenes with and without the use of a kd tree. The scenes we test
 With lower triangle counts, the kd tree helps very little, though it does contribute to a considerable speed up. However, as the triangle counts get higher, the kd tree is vital in completing execution in an acceptable amount of time. Being over 20 times faster than just using a bounding box!
 
 ## Bloopers! :)
+![blooper1](img/result/bloopers/blooper1.png)   
+Above image was a wrong result of Azimuth-Range transformation.  
+
+![blooper2](img/result/bloopers/blooper2.png)   
+Above image was a range image used to debug the Azimuth-Range image above. From this image, we can see that the range is highest and lowest both located at the ground while the range with the lowest range should be located at the top of the tower. Upon investigation, we find out that the wrong paramters setting for the camera caused this.  
+
+![blooper3](img/result/bloopers/blooper3.png)  
+Above image has a correct transformation to Azimuth-Range plane, but a wrong minimum range value for the plane. Upon investigation, we find out some pixels that didn't hit any thing by chance, thus wipe out those pixels to get a correct result.  
+
+![blooper4](img/result/bloopers/blooper4.png)  
+Above image showed a wrong double bounce contribution. This results from wrong camera transformation, camera intersection test and pixel index calculation.  
 
 ## References and Related Works
 
