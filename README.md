@@ -113,6 +113,8 @@ Our SAR simulator supports scene files, which can contain CUBE shapes, SPHERE sh
 | ----------------- | ----------------- |
 | ![](img/result/spitfireAzimuth.png) | ![](img/result/spitfire.png) |
 
+In this set of images, the spitfire model's metallic roughness map is sampled, then multiplied with GUI-determined parameters for roughness Factor and specular Reflectance.
+
 ### SAR Wave Simulation
 
 We use the lambertian and specular reflection models to simulate the behavior of radar signal. We give the user the flexibility to adapt the lambertian and specular reflection property of the material to simulate the interaction of EM wave with different materials. 
