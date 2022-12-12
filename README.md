@@ -118,6 +118,8 @@ Backscatter are radar signals that reflected back to the SAR sensor. signals can
 | ----------------- | ----------------- | ----------------- |
 | ![](img/Readme/ms3DoubleBounce.png) | ![](img/Readme/ms3DirectBackscatter.png) | ![](img/Readme/ms3.png) |
 
+### Azimuth Range Plane
+
 ### Acceleration Structures
 
 We are using a kd-tree as a bounding volume hierarchy. A kd-tree is a binary tree where each node is split along one axis-aligned hyperplane. The k in a kd tree represents the number of dimensions. So for our uses k is three. The root node is split along the x-axis. The next layer is split along Y, then Z and then back to X etc. For the 2d case, the partitions may look something like this.
