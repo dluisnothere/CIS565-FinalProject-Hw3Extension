@@ -24,6 +24,8 @@ Our hope is that this can contribute to the development of more open-source SAR 
 
 ## Gallery of Results
 
+For original reference gltfs, please see Appendix A at the bottom.
+
 |  Azimuth-Range view of New York | Orthogonal view of New York |
 | ----------------- | ----------------- | 
 | ![](img/result/newYork/newYorkAzimuth.png) | ![](img/result/newYork/newYorkImage.png)  |  
@@ -160,7 +162,7 @@ _Tested on: Windows 10, Intel(R) Core(TM) i9-10980HK CPU @ 2.40GHz 32Gb, GTX 207
 
 With lower triangle counts, the kd tree helps very little, though it does contribute to a considerable speed up. However, as the triangle counts get higher, the kd tree is vital in completing execution in an acceptable amount of time. Being over 20 times faster than just using a bounding box!
 
-## Bloopers! :)
+## Bloopers! 
 | This image indicates a wrong result of Azimuth-Range transformation for the eiffel tower scene.  | This image was a range image used to debug the Azimuth-Range image on the left. In this image, the range are represent by color from darkest to brightest. We can see that the pixels with highest and lowest ranges both located at the ground while the range with the lowest range should be located at the top of the tower. Upon investigation, we find out that the wrong paramters setting for the camera caused this.   | 
 | ----------------- | ----------------- | 
 | <img src="img/result/bloopers/blooper1.png"> | <img src="img/result/bloopers/blooper2.png" width=45% height=45% align="center"> |
@@ -169,6 +171,13 @@ With lower triangle counts, the kd tree helps very little, though it does contri
 |This image showed a wrong double bounce contribution because of wrong camera transformation, wrong camera intersection test and wrong pixel index calculation.   | This image has a correct transformation to Azimuth-Range plane, but a wrong minimum range value for the plane. Upon investigation, we find out some pixels that didn't hit any thing by chance, thus wipe out those pixels to get a correct result.   |   
 | ----------------- | ----------------- | 
 |![](img/result/bloopers/blooper4.png)  | ![](img/result/bloopers/blooper3.png)  |
+
+## Appendix A: Reference GLTFs
+
+|  Eiffel Tower Reference | New York City Reference |
+| ----------------- | ----------------- |
+| ![](img/effielTower/effielTowerRef.png)
+ | ![](img/effielTower/newYorkRef.png) |
 
 ## References and Related Works
 
