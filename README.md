@@ -132,9 +132,12 @@ Backscatter are radar signals that reflected back to the SAR sensor. signals can
 
 ### Acceleration Structures
 
-We are using a kd-tree as a bounding volume hierarchy. A kd-tree is a binary tree where each node is split along one axis-aligned hyperplane. The k in a kd tree represents the number of dimensions. So for our uses k is three. The root node is split along the x-axis. The next layer is split along Y, then Z and then back to X etc. For the 2d case, the partitions may look something like this.
+We are using a kd-tree as a bounding volume hierarchy. A kd-tree is a binary tree where each node is split along one axis-aligned hyperplane. Each node also stores a bounding box and a triangle structure which represents a small piece of a 3d object. The k in a kd tree represents the number of dimensions. So for our uses k is three. The root node is split along the x-axis. The next layer is split along Y, then Z and then X once more etc. In path tracing, we can levrage this data structure by minimizing the number of intersects we need to check for each ray. At any given node, we can check an intersection with the children's bounding boxes, if our given ray does not intersect with a bounding box, we can remove that subtree from consideration. Whenever we intersect a triangle, we can immediately return as well, because we will traverse the tree in order of shortest distance from intersects, meaning the first triangle hit should be the one closest to the ray origin.
+
 
 ![](img/Readme/kdtree.png)
+<br />
+_2 dimensional visualization of a kd-tree_
 
 ### GUI Elements Description
 
@@ -147,6 +150,8 @@ We've included a button to allow the user to load a new scene. We've also includ
 We tested a few scenes with and without the use of a kd tree. The scenes we tested varried in triangle count from around 35 thousand to over 1.2 million. These scenes had their execution time to reach 20 iterations measured in seconds. Though conventional path tracers may use thousands of iterations to converage into an acceptable image, our SAR simulator cconverges much faster. 
 
 ![](img/Readme/performanceC.png)
+<br />
+_Tested on: Windows 10, Intel(R) Core(TM) i9-10980HK CPU @ 2.40GHz 32Gb, GTX 2070 Super_
 
 With lower triangle counts, the kd tree helps very little, though it does contribute to a considerable speed up. However, as the triangle counts get higher, the kd tree is vital in completing execution in an acceptable amount of time. Being over 20 times faster than just using a bounding box!
 
