@@ -18,7 +18,7 @@ Milestone presentations can be found [here](https://drive.google.com/drive/folde
 
 In 3D rendering, Pathtracing is a technique that generates realistic looking scenes/images by simulating light ray bounces. To that effect, Synthetic Aperture Radar (SAR) simulation works very similarly. Both processes cast rays from a starting point: In path tracing, the pinhole camera; In SAR simulation, the antenna which emits waves. This means operations to make an SAR simulator are "embarrassingly parallel" and can be optimized by running the GPU. 
 
-Our team lends our knowledge of GPU-based raytracing to better understand its applications outside of visible light-based image outputs. To that effect, we are not Radar experts the code here is implemented to the best of our abilities based on research. 
+Our team lends our knowledge of GPU-based raytracing to better understand its applications outside of visible light-based image outputs.
 
 Our hope is that this can contribute to the development of more open-source SAR simulators that can be helpful for aircraft/vehicle designers, and by extension, SAR-based material behavior research. We also hope that these outputs can be used as easy data-gathering for any AI-based image-recognition for the typically blurry images produced by real SARs.
 
