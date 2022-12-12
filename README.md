@@ -26,24 +26,24 @@ Our hope is that this can contribute to the development of more open-source SAR 
 
 ## Gallery of Results
 
-|  Azimuth-Range view of New York | Orthogonal view of New York | Reference View |
-| ----------------- | ----------------- | ------------------- | 
-| ![](img/result/newYork/newYorkAzimuth.png) | ![](img/result/newYork/newYorkImage.png)  |   |
+|  Azimuth-Range view of New York | Orthogonal view of New York |
+| ----------------- | ----------------- | 
+| ![](img/result/newYork/newYorkAzimuth.png) | ![](img/result/newYork/newYorkImage.png)  |  
 
 
 | Azimuth-Range view of a skyscraper | Orthogonal view of a skyscraper | Reference View |
-| ------------------ | ----------------- | ----------------- |
-| ![](img/result/skyscraper/skyscraperAzimuth.png) | ![](img/result/skyscraper/skyscraperImage.png) |  |
+| ------------------ | ----------------- | 
+| ![](img/result/skyscraper/skyscraperAzimuth.png) | ![](img/result/skyscraper/skyscraperImage.png) | 
 
 
-| Azimuth-Range view of the Eiffel Tower | Orthogonal view of the Eiffel Tower | Reference View |
-| ------------------ | ----------------- | ----------------- |
-| ![](img/result/effielTower/effielTowerAzimuth.png) | ![](img/result/effielTower/effielTowerImage.png) |  |
+| Azimuth-Range view of the Eiffel Tower | Orthogonal view of the Eiffel Tower | 
+| ------------------ | ----------------- | 
+| ![](img/result/effielTower/effielTowerAzimuth.png) | ![](img/result/effielTower/effielTowerImage.png) | 
 
 
-| Azimuth-Range view of a Stylized City Block | Orthogonal view of a Stylized City Block | Reference View |
-| ----------------- | ----------------- | ----------------- | 
-| ah | ah | ah |
+| Azimuth-Range view of a Stylized City Block | Orthogonal view of a Stylized City Block | 
+| ----------------- | ----------------- | 
+| ah | ah | 
 
 _GLTF CREDITS GO HERE_
 
