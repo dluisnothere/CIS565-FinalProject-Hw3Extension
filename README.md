@@ -24,7 +24,7 @@ Check out the next section for a brief overview on what an SAR is!
 
 Our hope is that this can contribute to the development of more open-source SAR simulators that can be helpful for aircraft/vehicle designers. We also hope that these outputs can be used as easy data-gathering for any AI-based image-recognition for the typically blurry images produced by real SARs.
 
-### CURRENT PROGRESS
+## Results
 
 |  Current Milestone 3 Progress: ORTHOGONAL VIEW | Current Milestone 3 Progress: AZIMUTH RANGE VIEW  |
 | ----------------- | ----------------- |
@@ -104,13 +104,6 @@ Backscatter are radar signals that reflected back to the SAR sensor. signals can
 | Double Bounce  | Direct Backscatter | Complete image plane |
 | ----------------- | ----------------- | ----------------- |
 | ![](img/Readme/ms3DoubleBounce.png) | ![](img/Readme/ms3DirectBackscatter.png) | ![](img/Readme/ms3.png) |
-
-
-### Vehicle Movement
-
-A key part of SAR simulation is the movement of the "vehicle" In the real world, the SAR is mounted on either an aircraft or a satilite. The SAR then bounces infared waves towards a target and "listens" for radar waves that have scattered back. From this, the SAR image can be constructed. 
-
-In an effort to model this behavior. We use the parthtracer camera as both an antenna and receiver. Radar waves modeled as rays are shot from the camera, and are accumulated if they bounce back towards the camera. There are different SAR modes that can be modeled. The one we chose to focus on is called spotlight. Spotlight SAR involves keeping the camera focused on the same point as the vehicle moves. 
 
 ### Acceleration Structures
 
