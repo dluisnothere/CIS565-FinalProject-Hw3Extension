@@ -41,7 +41,7 @@ Our hope is that this can contribute to the development of more open-source SAR 
 
 | Azimuth-Range view of a Stylized City Block | Orthogonal view of a Stylized City Block | 
 | ----------------- | ----------------- | 
-| ah | ah | 
+| ![](img/result/cityblock/cityblockAzimuth.png) | ![](img/result/cityblock/cityblockImage.png)| 
 
 _GLTF CREDITS GO HERE_
 
