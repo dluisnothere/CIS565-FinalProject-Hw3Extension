@@ -95,12 +95,20 @@ FOVY        45
 ITERATIONS  1
 DEPTH       1
 FILE        cornell
-EYE         0 10 14.5
+EYE         0 -15 14.5
 LOOKAT      0 0 0
 UP          0 1 0
 
-// texture obj
+// Floor
 OBJECT 0
+cube
+material 1
+TRANS       0 -0.1 0
+ROTAT       0 0 0
+SCALE       100 .01 100
+
+// texture obj
+OBJECT 1
 ../gltfs/spitfire/scene.gltf
 material 8
 TRANS		0 0 0
