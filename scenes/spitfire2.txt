@@ -103,7 +103,7 @@ UP          0 1 0
 OBJECT 0
 cube
 material 1
-TRANS       0 -0.1 0
+TRANS       0 -8 0
 ROTAT       0 0 0
 SCALE       100 .01 100
 

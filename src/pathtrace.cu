@@ -814,6 +814,8 @@ __global__ void kernComputeShadeSAR(
 	, float ui_specularReflection
 	, float ui_roughnessFactor
 	, float ui_surfaceBrilliance
+	, cudaTextureObject_t* textureObjs
+	, int* numChannels
 )
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -842,6 +844,23 @@ __global__ void kernComputeShadeSAR(
 			// material.hasReflective, REFL
 			//Fr: roughness factor
 			// material.specular.exponent, SPECEX
+
+			if (material.pbrMetallicRoughness.metallicRoughnessOffset >= 0) {
+				int metallicRoughnessTexId = material.pbrMetallicRoughness.metallicRoughnessOffset + material.pbrMetallicRoughness.metallicRoughnessIdx;
+
+				float mu = shadeableIntersections[idx].uv.x;
+				float mv = shadeableIntersections[idx].uv.y;
+
+				//printf("tangent: %f, %f, %f, %f \n", intersection.tangent.x, intersection.tangent.y, intersection.tangent.z, intersection.tangent.w);
+
+				float4 metallicRoughness = tex2D<float4>(textureObjs[metallicRoughnessTexId], mu, mv);
+				float rough = metallicRoughness.y;
+				float metal = metallicRoughness.z;
+
+				Fr *= rough;
+				Fs *= metal;
+			}
+
 
 			glm::vec3 N = glm::normalize(intersection.surfaceNormal);
 			glm::vec3 L = glm::normalize(-pathSegments[idx].ray.direction);
@@ -1214,6 +1233,8 @@ void pathtrace(uchar4* pbo, int frame, int iter,
 			ui_specularReflection,
 			ui_roughnessFactor,
 			ui_surfaceBrilliance
+			, dev_textureObjs
+			, dev_textureChannels
 			);
 		if (depth > 1) {
 			kernComputeBlockToCameraSAR << <numblocksPathSegmentTracing, blockSize1d >> > (
@@ -1289,7 +1310,7 @@ void pathtrace(uchar4* pbo, int frame, int iter,
 	printf("maxRange: %f \n", host_maxRange.length);
 
 	for (int i = 1; i <= traceDepth; ++i) {
-		kernTransToAzimuthRange << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths, host_maxRange.length, host_minRange.length, cam.resolution.x, cam.resolution.y, i);
+		//kernTransToAzimuthRange << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths, host_maxRange.length, host_minRange.length, cam.resolution.x, cam.resolution.y, i);
 	}
 
 	for (int i = 1; i <= traceDepth; ++i) {
