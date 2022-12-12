@@ -36,7 +36,7 @@ Our hope is that this can contribute to the development of more open-source SAR 
 
 | Azimuth-Range view of the Eiffel Tower | Orthogonal view of the Eiffel Tower|
 | ------------------ | ----------------- |
-| ![](img/result/skyscraper/effielTowerAzimuth.png) | ![](img/result/skyscraper/effielTowerImage.png) |
+| ![](img/result/effielTower/effielTowerAzimuth.png) | ![](img/result/skyscraper/effielTowerImage.png) |
 
 _GLTF CREDITS GO HERE_
 
