@@ -140,3 +140,12 @@ With lower triangle counts, the kd tree helps very little, though it does contri
 
 ## References and Related Works
 
+The following resources were referenced during the construction of the project.
+* [Paper on Hardware Accelerated SAR Simulations](https://arxiv.org/pdf/2005.09736.pdf)
+* [SAR Image Simulation of Complex Target including Multiple Scattering (via Shooting Bouncing Ray)](https://www.mdpi.com/2072-4292/13/23/4854)
+* [Real-Time SAR Simulation on GPU (via Rasterization)](https://www.ifp.uni-stuttgart.de/publikationen/nach_jahrgang/)
+* [Ultra-Fast Radar Simulation for Radar System Design and Automotive Aplications](https://developer.nvidia.com/gtc/2020/video/s21966-vid)
+* [Ray Tracing Simulation Techniques for Understanding High Resolution SAR Images](https://elib.dlr.de/66195/1/Auer_Hinz_Bamler_Simulation2010.pdf)
+* [KD-Tree in Path Tracer](http://graphics.stanford.edu/papers/i3dkdtree/gpu-kd-i3d.pdf)
+* [CUDA](https://developer.nvidia.com/cuda-toolkit)
+
