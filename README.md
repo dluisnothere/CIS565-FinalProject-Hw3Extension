@@ -180,7 +180,7 @@ With lower triangle counts, the kd tree helps very little, though it does contri
  
  |  Skyscraper Reference | City Block Reference |
 | ----------------- | ----------------- |
-| ![](img/result/skyscraper/skyscraperRef.png) |  |
+| ![](img/result/skyscraper/skyscraperRef.png) | ![](img/result/cityblock/cityblockRef.png) |
 
 ## References and Related Works
 
