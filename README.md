@@ -107,7 +107,7 @@ Our SAR simulator supports scene files, which can contain CUBE shapes, SPHERE sh
 
 |  Azimuth Range view of Spitfire.gltf  | Orthographic Camera of Spitfire.gltf |
 | ----------------- | ----------------- |
-| ![](img/result/spitfire.png) | ![](img/result/spitfireAzimuth.png) |
+| ![](img/result/spitfireAzimuth.png) | ![](img/result/spitfire.png) |
 
 ### SAR Wave Simulation
 
