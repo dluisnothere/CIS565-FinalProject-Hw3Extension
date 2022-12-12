@@ -26,9 +26,9 @@ Our hope is that this can contribute to the development of more open-source SAR 
 
 ## Gallery of Results
 
-|  Azimuth-Range view of New York | Orthogonal view of New York |
-| ----------------- | ----------------- |
-| ![](img/result/newYork/newYorkAzimuth.png) | ![](img/result/newYork/newYorkImage.png)  |
+|  Azimuth-Range view of New York | Orthogonal view of New York | New York: 1st Bounce | New York: 2nd Bounce | New York: 3rd Bounce
+| ----------------- | ----------------- | ----------------- | ---------------- | --------------------| 
+| ![](img/result/newYork/newYorkAzimuth.png) | ![](img/result/newYork/newYorkImage.png)  | ![](img/result/newYork/newYorkImageDepth1.png)  | ![](img/result/newYork/newYorkImageDepth2.png)  | ![](img/result/newYork/newYorkImageDepth3.png) |
 
 | Azimuth-Range view of a skyscraper | Orthogonal view of a skyscraper|
 | ------------------ | ----------------- |
