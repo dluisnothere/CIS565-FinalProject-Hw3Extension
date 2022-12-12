@@ -32,7 +32,7 @@ Our hope is that this can contribute to the development of more open-source SAR 
 
 | Azimuth-Range view of a skyscraper | Orthogonal view of a skyscraper|
 | ------------------ | ----------------- |
-| ![](img/result/skyscraper/skyscraperAzimuth.png) | ![](img/result/skyscraper/skyscraper.png) |
+| ![](img/result/skyscraper/skyscraperAzimuth.png) | ![](img/result/skyscraper/skyscraperImage.png) |
 
 _GLTF CREDITS GO HERE_
 
