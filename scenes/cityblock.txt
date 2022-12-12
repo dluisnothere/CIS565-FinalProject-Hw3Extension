@@ -90,17 +90,25 @@ EMITTANCE   0
 
 // Camera
 CAMERA
-RES         800 1000
+RES         1200 1000
 FOVY        45
-ITERATIONS  10
-DEPTH       2
+ITERATIONS  1
+DEPTH       3
 FILE        cornell
 EYE         5 -5 5
 LOOKAT      0 0 0
 UP          0 1 0
 
-// texture obj
+// Floor
 OBJECT 0
+cube
+material 1
+TRANS       0 -0.02 0
+ROTAT       0 0 0
+SCALE       100 .01 100
+
+// texture obj
+OBJECT 1
 ../gltfs/city_grid_block_moved/scene.gltf
 material 8
 TRANS		0 0 0

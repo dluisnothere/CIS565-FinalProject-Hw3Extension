@@ -30,7 +30,7 @@
 #define ORTHOGRAPHIC 1
 #define SARNAIVE 1
 #define PERF_ANALYSIS 0
-#define USE_KD 0
+#define USE_KD 1
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
@@ -133,7 +133,7 @@ void InitDataContainer(GuiDataContainer* imGuiData)
 }
 
 // specialized function just to cudaMalloc textures
-void createTexture(const Texture &t, int numChannels, int texIdx) {
+void createTexture(const Texture& t, int numChannels, int texIdx) {
 	// create a channel desc
 	cudaChannelFormatDesc channelDesc;
 
@@ -173,7 +173,7 @@ void createTexture(const Texture &t, int numChannels, int texIdx) {
 }
 
 void pathtraceInit(Scene* scene) {
-	printf("Beginning Memory Alloc\n");
+	printf("Beginning Memory Alloc");
 	hst_scene = scene;
 	//hst_scene->constructKDTrees();
 	numTextures = hst_scene->textures.size();
@@ -349,12 +349,12 @@ void pathtraceFree() {
 #if PERF_ANALYSIS
 	if (beginEvent != NULL) {
 		cudaEventDestroy(beginEvent);
-	} 
+	}
 	if (endEvent != NULL) {
 		cudaEventDestroy(endEvent);
 	}
 #endif
-	
+
 
 	checkCUDAError("pathtraceFree");
 }
@@ -401,7 +401,7 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 {
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	
+
 	if (x < cam.resolution.x && y < cam.resolution.y) {
 		int index = x + (y * cam.resolution.x);
 		PathSegment& segment = pathSegments[index];
@@ -419,7 +419,7 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 		segment.origPixelPos = segment.ray.origin;
 		segment.ray.direction = cam.view;
 		//printf("camera lookAt: %f, %f, %f\n", cam.lookAt.x, cam.lookAt.y, cam.lookAt.z);
-		
+
 #else
 		segment.ray.origin = cam.position;
 		segment.ray.direction = glm::normalize(cam.view
@@ -514,7 +514,7 @@ __global__ void kernComputeBlockToCameraSAR(
 				if (boxT != -1) {
 #if USE_KD
 
-					t = treeIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal,  tmp_uv, tmp_tangent, outside, kdtrees, geom.root, path_index);
+					t = treeIntersectionTest(&geom, pathSegment.ray, tmp_intersect, tmp_normal, tmp_uv, tmp_tangent, outside, kdtrees, geom.root, path_index);
 					tmpHitObj = true;
 					if (t > 0.0f && t_min > t)
 					{
@@ -565,7 +565,7 @@ __global__ void kernComputeBlockToCameraSAR(
 #endif
 				}
 			}
-			
+
 			// Compute the minimum t from the intersection tests to determine what
 			// scene geometry object was hit first.
 			if (t > 0.0f && t_min > t)
@@ -814,8 +814,6 @@ __global__ void kernComputeShadeSAR(
 	, float ui_specularReflection
 	, float ui_roughnessFactor
 	, float ui_surfaceBrilliance
-	, cudaTextureObject_t* textureObjs
-	, int* numChannels
 )
 {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -829,15 +827,13 @@ __global__ void kernComputeShadeSAR(
 				pathSegments[idx].remainingBounces = 0;
 				return;
 			}*/
-
 			thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, 0);
 			thrust::uniform_real_distribution<float> u01(0, 1);
 
-			float Fd = ui_diffuseReflection;		//0.2f;
-			float Fb = ui_surfaceBrilliance;		//0.3f;
-			float Fs = ui_specularReflection;		//0.6f;
-			float Fr = ui_roughnessFactor;			//0.3f;
-
+			float Fd = ui_diffuseReflection;//0.2f;
+			float Fb = ui_surfaceBrilliance;//0.3f;
+			float Fs = ui_specularReflection;//0.6f;
+			float Fr = ui_roughnessFactor;//0.3f;
 			//Fd: diffuse reflection coefficient [0....1]
 			// material.hasRefractive, REFR
 			//Fb: surface brilliance factor [default value: 1].
@@ -847,22 +843,6 @@ __global__ void kernComputeShadeSAR(
 			//Fr: roughness factor
 			// material.specular.exponent, SPECEX
 
-			if (material.pbrMetallicRoughness.metallicRoughnessOffset >= 0) {
-				int metallicRoughnessTexId = material.pbrMetallicRoughness.metallicRoughnessOffset + material.pbrMetallicRoughness.metallicRoughnessIdx;
-
-				float mu = shadeableIntersections[idx].uv.x;
-				float mv = shadeableIntersections[idx].uv.y;
-
-				//printf("tangent: %f, %f, %f, %f \n", intersection.tangent.x, intersection.tangent.y, intersection.tangent.z, intersection.tangent.w);
-
-				float4 metallicRoughness = tex2D<float4>(textureObjs[metallicRoughnessTexId], mu, mv);
-				float rough = metallicRoughness.y;
-				float metal = metallicRoughness.z;
-
-				Fr *= rough; 
-				Fs *= metal;
-			}
-			
 			glm::vec3 N = glm::normalize(intersection.surfaceNormal);
 			glm::vec3 L = glm::normalize(-pathSegments[idx].ray.direction);
 			glm::vec3 H = glm::normalize(N + L);
@@ -870,9 +850,10 @@ __global__ void kernComputeShadeSAR(
 			float Is = Fs * glm::pow(glm::dot(N, H), Fr);
 			float resultColor = Id + Is;
 			if (depth == 1) {
-				glm::vec3 V = glm::reflect(-L , N);
+				glm::vec3 V = glm::reflect(-L, N);
 				pathSegments[idx].negPriRay = L;
 				pathSegments[idx].color = glm::vec3(resultColor);
+				//pathSegments[idx].color += glm::vec3(u01(rng) * 0.1f);   //noise
 				pathSegments[idx].length1 = intersection.t;
 				pathSegments[idx].primaryLength = intersection.t;
 				pathSegments[idx].depth = 1;
@@ -909,7 +890,7 @@ __global__ void kernComputeShadeSAR(
 					pathSegments[idx].pixelIndexY2 = (pixelIdxY + pathSegments[idx].pixelIndexY) / 2;*/
 					pathSegments[idx].depth = 2;
 					/*pathSegments[idx].pixelIndex2 = pathSegments[idx].pixelIndexX2 + (pathSegments[idx].pixelIndexY2 * cam.resolution.x);*/
-					
+
 					//update Ray
 					pathSegments[idx].ray.origin = focusingRayOri;
 					pathSegments[idx].ray.direction = focusingRayDir;
@@ -921,7 +902,7 @@ __global__ void kernComputeShadeSAR(
 				else {
 					pathSegments[idx].checkCameraBlock = false;
 				}
-			
+
 			}
 			else if (depth == 3) {
 				glm::vec3 focusingRayDir = pathSegments[idx].negPriRay;
@@ -1202,7 +1183,7 @@ void pathtrace(uchar4* pbo, int frame, int iter,
 		//	, dev_kdtrees
 		//	);
 		checkCUDAError("trace one bounce");
-//#endif
+		//#endif
 		cudaDeviceSynchronize();
 
 		// TODO:
@@ -1233,9 +1214,7 @@ void pathtrace(uchar4* pbo, int frame, int iter,
 			ui_specularReflection,
 			ui_roughnessFactor,
 			ui_surfaceBrilliance
-			, dev_textureObjs
-			, dev_textureChannels
-);
+			);
 		if (depth > 1) {
 			kernComputeBlockToCameraSAR << <numblocksPathSegmentTracing, blockSize1d >> > (
 				depth
@@ -1247,7 +1226,7 @@ void pathtrace(uchar4* pbo, int frame, int iter,
 				, dev_kdtrees
 				);
 		}
-		
+
 #else
 		kernComputeShade << <numblocksPathSegmentTracing, blockSize1d >> > (
 			iter,
@@ -1259,7 +1238,7 @@ void pathtrace(uchar4* pbo, int frame, int iter,
 			, dev_textureChannels
 			);
 #endif
-		
+
 		cudaDeviceSynchronize();
 		// 4. remove_if sorts all contents such that useless paths are all at the end.
 		// if the remainingBounces = 0 (any material that doesn't hit anything or number of depth is at its limit)
@@ -1297,24 +1276,30 @@ void pathtrace(uchar4* pbo, int frame, int iter,
 	//calculate maxRange and minRange to form image in azimuth-range plane
 	PathSegment* longestSeg = thrust::max_element(thrust::device, dev_paths, dev_paths + num_paths, compare_range());
 
-	PathSegment* shortestSeg = thrust::min_element(thrust::device, dev_paths, dev_paths + num_paths, compare_range());
+	dev_path_end = thrust::stable_partition(thrust::device, dev_paths, dev_paths + num_paths, length_zero());
+	currNumPaths = dev_path_end - dev_paths;
+
+	PathSegment* shortestSeg = thrust::min_element(thrust::device, dev_paths, dev_paths + currNumPaths, compare_range());
 	PathSegment host_maxRange;
 	PathSegment host_minRange;
 	cudaMemcpy(&host_maxRange, longestSeg, sizeof(PathSegment), cudaMemcpyDeviceToHost);
 	cudaMemcpy(&host_minRange, shortestSeg, sizeof(PathSegment), cudaMemcpyDeviceToHost);
-	
+
 	printf("minRange: %f \n", host_minRange.length);
 	printf("maxRange: %f \n", host_maxRange.length);
-	
+
 	for (int i = 1; i <= traceDepth; ++i) {
-		kernTransToAzimuthRange << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths, host_maxRange.length, host_minRange.length, cam.resolution.x, cam.resolution.y, i);
+		//kernTransToAzimuthRange << <numBlocksPixels, blockSize1d >> > (num_paths, dev_paths, host_maxRange.length, host_minRange.length, cam.resolution.x, cam.resolution.y, i);
 	}
 
 	for (int i = 1; i <= traceDepth; ++i) {
+		if (i == 1 || i == 2) {
+			continue;
+		}
 		finalGather << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image, dev_paths, i, cam);
 	}
 
-	
+
 	cudaDeviceSynchronize(); // maybe dont need
 
 	kernFinalColorClean << <numBlocksPixels, blockSize1d >> > (num_paths, dev_image);
@@ -1332,3 +1317,5 @@ void pathtrace(uchar4* pbo, int frame, int iter,
 
 	checkCUDAError("pathtrace");
 }
+
+//test github
