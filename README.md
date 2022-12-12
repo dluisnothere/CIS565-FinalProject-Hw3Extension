@@ -57,7 +57,7 @@ In order to bypass this issue, a smaller antenna is mounted onto a moving vehicl
 
 A real SAR collects data in the following steps (May be difficult to see on github dark mode)
 
-![](img/Readme/RealSARFlow.png)
+![](img/Readme/RealSARFlow2.png)
 
 _Fig 1. Logical Flow of how a REAL SAR collects data_
 
@@ -73,7 +73,7 @@ Modeling the rays in an SAR simulator is quite  different from a path tracer in 
 
 | Real SAR Data Collection Process  | Simulated SAR Data Collection Process  |
 | ----------------- | ----------------- |
-| ![](img/Readme/RealSARFlow.png) | ![](img/Readme/SimSAr.png) |
+| ![](img/Readme/RealSARFlow2.png) | ![](img/Readme/SimSARFlow2.png) |
 
 _Fig 2. Logical Flow of how a SIMULATED SAR collects data compared to a REAL SAR_
 
