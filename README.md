@@ -128,6 +128,10 @@ We are using a kd-tree as a bounding volume hierarchy. A kd-tree is a binary tre
 
 ### GUI Elements Description
 
+Our GUI is implemented using the ImGui library. 
+
+We've included a button to allow the user to load a new scene. We've also included four sliders to modify the four material parameters that impact the backscatter calculation. 
+
 ## Performance Analysis
 
 We tested a few scenes with and without the use of a kd tree. The scenes we tested varried in triangle count from around 35 thousand to over 1.2 million. These scenes had their execution time to reach 20 iterations measured in seconds. Though conventional path tracers may use thousands of iterations to converage into an acceptable image, our SAR simulator cconverges much faster. 
