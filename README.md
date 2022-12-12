@@ -176,8 +176,13 @@ With lower triangle counts, the kd tree helps very little, though it does contri
 
 |  Eiffel Tower Reference | New York City Reference |
 | ----------------- | ----------------- |
-| ![](img/effielTower/effielTowerRef.png)
- | ![](img/effielTower/newYorkRef.png) |
+| ![](img/result/effielTower/effielTowerRef.png)
+ | ![](img/result/newYork/newYorkRef.png) |
+ 
+ |  Skyscraper Reference | City Block Reference |
+| ----------------- | ----------------- |
+| ![](img/result/skyscraper/skyscraperRef.png)
+ |  |
 
 ## References and Related Works
 
